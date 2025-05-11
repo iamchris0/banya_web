@@ -10,25 +10,27 @@ const LoginPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  
+
   const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
-    
-    setTimeout(() => {
-      const success = login(username, password);
-      
+
+    try {
+      const success = await login(username, password);
       if (success) {
         navigate('/');
       } else {
         setError('Invalid username or password');
       }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred during login');
+    } finally {
       setIsLoading(false);
-    }, 800);
+    }
   };
 
   if (isAuthenticated) {
@@ -39,15 +41,15 @@ const LoginPage: React.FC = () => {
     <div className="min-h-screen flex">
       {/* Left side with background image and logo */}
       <div className="hidden lg:flex lg:w-2/5 bg-blue-900 relative">
-        <div 
+        <div
           className="absolute inset-0 bg-cover bg-center"
           style={{
-            backgroundImage: 'url("https://images.pexels.com/photos/7587466/pexels-photo-7587466.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1")',
-            backgroundBlendMode: 'overlay'
+            backgroundImage:
+              'url("https://images.pexels.com/photos/7587466/pexels-photo-7587466.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1")',
+            backgroundBlendMode: 'overlay',
           }}
         >
           <div className="absolute inset-0 bg-cyan-900/25"></div>
-
         </div>
         <div className="relative z-10 flex flex-col items-center justify-center w-full p-12 text-white">
           <Tree size={64} className="mb-3" />
@@ -82,7 +84,7 @@ const LoginPage: React.FC = () => {
               placeholder="Enter your username"
               required
             />
-            
+
             <Input
               id="password"
               type="password"
@@ -95,7 +97,7 @@ const LoginPage: React.FC = () => {
 
             <Button
               type="submit"
-              className="w-full bg-green-700 text-white hover:bg-green-800 transition-colors"
+              className="w-full bg-green-900 text-white hover:bg-green-800 transition-colors"
               isLoading={isLoading}
             >
               Sign In
