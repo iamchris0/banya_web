@@ -18,35 +18,46 @@ const SurveyModal: React.FC<SurveyModalProps> = ({ isOpen, onClose, onSubmitSucc
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [error, setError] = useState('');
-  const [formData, setFormData] = useState<Partial<ClientInfo>>({
-    name: '',
-    date: new Date().toISOString().split('T')[0],
-    serviceType: '',
-    duration: '',
-    notes: '',
-  });
 
-  // Reset formData when modal opens
+  const initialFormData: Partial<ClientInfo> = {
+    amountOfPeople: 0,
+    male: 0,
+    female: 0,
+    englishSpeaking: 0,
+    russianSpeaking: 0,
+    offPeakClients: 0,
+    peakTimeClients: 0,
+    newClients: 0,
+    soldVouchersAmount: 0,
+    soldVouchersTotal: 0,
+    soldMembershipsAmount: 0,
+    soldMembershipsTotal: 0,
+    yottaDepositsAmount: 0,
+    yottaDepositsTotal: 0,
+    yottaLinksAmount: 0,
+    yottaLinksTotal: 0,
+    date: new Date().toISOString().split('T')[0],
+    createdBy: user?.username || '',
+  };
+
+  const [formData, setFormData] = useState(initialFormData);
+
   useEffect(() => {
     if (isOpen) {
-      setFormData({
-        name: '',
-        date: new Date().toISOString().split('T')[0],
-        serviceType: '',
-        duration: '',
-        notes: '',
-      });
+      setFormData(initialFormData);
       setError('');
       setShowSuccess(false);
     }
-  }, [isOpen]);
+  }, [isOpen, user]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    if (value === '' || /^[0-9]*$/.test(value)) {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: value === '' ? '' : parseInt(value, 10),
+      }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -70,11 +81,23 @@ const SurveyModal: React.FC<SurveyModalProps> = ({ isOpen, onClose, onSubmitSucc
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          name: formData.name,
+          amountOfPeople: parseInt(String(formData.amountOfPeople) || '0'),
+          male: parseInt(String(formData.male) || '0'),
+          female: parseInt(String(formData.female) || '0'),
+          englishSpeaking: parseInt(String(formData.englishSpeaking) || '0'),
+          russianSpeaking: parseInt(String(formData.russianSpeaking) || '0'),
+          offPeakClients: parseInt(String(formData.offPeakClients) || '0'),
+          peakTimeClients: parseInt(String(formData.peakTimeClients) || '0'),
+          newClients: parseInt(String(formData.newClients) || '0'),
+          soldVouchersAmount: parseInt(String(formData.soldVouchersAmount) || '0'),
+          soldVouchersTotal: parseInt(String(formData.soldVouchersTotal) || '0'),
+          soldMembershipsAmount: parseInt(String(formData.soldMembershipsAmount) || '0'),
+          soldMembershipsTotal: parseInt(String(formData.soldMembershipsTotal) || '0'),
+          yottaDepositsAmount: parseInt(String(formData.yottaDepositsAmount) || '0'),
+          yottaDepositsTotal: parseInt(String(formData.yottaDepositsTotal) || '0'),
+          yottaLinksAmount: parseInt(String(formData.yottaLinksAmount) || '0'),
+          yottaLinksTotal: parseInt(String(formData.yottaLinksTotal) || '0'),
           date: formData.date,
-          serviceType: formData.serviceType,
-          duration: formData.duration,
-          notes: formData.notes || '',
           createdBy: user.username,
         }),
       });
@@ -102,124 +125,243 @@ const SurveyModal: React.FC<SurveyModalProps> = ({ isOpen, onClose, onSubmitSucc
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          {/* Backdrop */}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 0.5 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}
-            className="absolute inset-0 bg-black"
+            className="fixed inset-0 bg-black"
             onClick={onClose}
           />
 
-          {/* Modal Content */}
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
             transition={{ duration: 0.3 }}
-            className="relative z-10 w-full max-w-lg"
+            className="relative w-full max-w-5xl"
           >
-            <Card className="relative">
+            <Card className="relative max-h-[100vh] overflow-y-auto">
               <button
                 onClick={onClose}
-                className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+                className="absolute top-4 right-4 p-2 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100"
               >
                 <X size={24} />
               </button>
 
               <div className="p-6">
-                <h2 className="text-2xl font-semibold text-gray-800 mb-4">Add Client Information</h2>
+                <h2 className="text-2xl font-semibold text-gray-800 mb-6">Daily Client Survey</h2>
 
                 {showSuccess && (
-                  <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded relative mb-4" role="alert">
-                    <span className="block sm:inline">Information has been successfully submitted!</span>
+                  <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-md">
+                    <p className="text-green-800">Survey successfully submitted!</p>
                   </div>
                 )}
 
                 {error && (
-                  <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded relative mb-4" role="alert">
-                    <span className="block sm:inline">{error}</span>
+                  <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
+                    <p className="text-red-800">{error}</p>
                   </div>
                 )}
 
-                <form onSubmit={handleSubmit}>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Input
-                      label="Client Name"
-                      id="name"
-                      name="name"
-                      value={formData.name}
-                      onChange={handleChange}
-                      placeholder="Enter client's full name"
-                      required
-                    />
-                    <Input
-                      label="Date of Visit"
-                      id="date"
-                      name="date"
-                      type="date"
-                      value={formData.date}
-                      onChange={handleChange}
-                      required
-                    />
-                    <div className="mb-4">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Service Type</label>
-                      <select
-                        id="serviceType"
-                        name="serviceType"
-                        value={formData.serviceType}
-                        onChange={handleChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                        required
-                      >
-                        <option value="">Select a service</option>
-                        <option value="sauna">Sauna</option>
-                        <option value="steam">Steam Bath</option>
-                        <option value="jacuzzi">Jacuzzi</option>
-                        <option value="massage">Massage</option>
-                        <option value="package">Package Deal</option>
-                      </select>
+                <form onSubmit={handleSubmit} className="space-y-8">
+                  {/* First Horizontal Block */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* General Information */}
+                    <div className="bg-gray-50 p-6 rounded-lg">
+                      <h3 className="text-lg font-medium text-gray-900 mb-4">General Information</h3>
+                      <div className="space-y-4">
+                        {/* Row 1: Date */}
+                        <div className="grid grid-cols-1">
+                          <Input
+                            label="Date"
+                            type="date"
+                            name="date"
+                            value={formData.date}
+                            onChange={handleChange}
+                            required
+                          />
+                        </div>
+                        {/* Row 2: Total Visitors */}
+                        <div className="grid grid-cols-1">
+                          <Input
+                            label="Total Visitors"
+                            type="number"
+                            name="amountOfPeople"
+                            value={formData.amountOfPeople}
+                            onChange={handleChange}
+                            min="0"
+                            required
+                          />
+                        </div>
+                        {/* Row 3: Male and Female */}
+                        <div className="grid grid-cols-2 gap-4">
+                          <Input
+                            label="Male"
+                            type="number"
+                            name="male"
+                            value={formData.male}
+                            onChange={handleChange}
+                            min="0"
+                          />
+                          <Input
+                            label="Female"
+                            type="number"
+                            name="female"
+                            value={formData.female}
+                            onChange={handleChange}
+                            min="0"
+                          />
+                        </div>
+                      </div>
                     </div>
-                    <div className="mb-4">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Duration</label>
-                      <select
-                        id="duration"
-                        name="duration"
-                        value={formData.duration}
-                        onChange={handleChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                        required
-                      >
-                        <option value="">Select duration</option>
-                        <option value="30min">30 minutes</option>
-                        <option value="1hr">1 hour</option>
-                        <option value="2hr">2 hours</option>
-                        <option value="3hr">3 hours</option>
-                        <option value="4hr">4 hours</option>
-                      </select>
+
+                    {/* Demographics & Timing */}
+                    <div className="bg-gray-50 p-6 rounded-lg">
+                      <h3 className="text-lg font-medium text-gray-900 mb-4">Demographics & Timing</h3>
+                      <div className="space-y-4">
+                        {/* Row 1: English and Russian Speaking */}
+                        <div className="grid grid-cols-2 gap-4">
+                          <Input
+                            label="English Speaking"
+                            type="number"
+                            name="englishSpeaking"
+                            value={formData.englishSpeaking}
+                            onChange={handleChange}
+                            min="0"
+                          />
+                          <Input
+                            label="Russian Speaking"
+                            type="number"
+                            name="russianSpeaking"
+                            value={formData.russianSpeaking}
+                            onChange={handleChange}
+                            min="0"
+                          />
+                        </div>
+                        {/* Row 2: Off-Peak and Peak-Time */}
+                        <div className="grid grid-cols-2 gap-4">
+                          <Input
+                            label="Off-Peak"
+                            type="number"
+                            name="offPeakClients"
+                            value={formData.offPeakClients}
+                            onChange={handleChange}
+                            min="0"
+                          />
+                          <Input
+                            label="Peak-Time"
+                            type="number"
+                            name="peakTimeClients"
+                            value={formData.peakTimeClients}
+                            onChange={handleChange}
+                            min="0"
+                          />
+                        </div>
+                        {/* Row 3: New Clients */}
+                        <div className="grid grid-cols-1">
+                          <Input
+                            label="New Clients"
+                            type="number"
+                            name="newClients"
+                            value={formData.newClients}
+                            onChange={handleChange}
+                            min="0"
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Additional Notes</label>
-                    <textarea
-                      id="notes"
-                      name="notes"
-                      value={formData.notes}
-                      onChange={handleChange}
-                      rows={4}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Enter any additional information about the client or service"
-                    />
+
+                  {/* Second Horizontal Block */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Sales Information */}
+                    <div className="bg-gray-50 p-6 rounded-lg">
+                      <h3 className="text-lg font-medium text-gray-900 mb-4">Sales Information</h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        <Input
+                          label="Vouchers Sold"
+                          type="number"
+                          name="soldVouchersAmount"
+                          value={formData.soldVouchersAmount}
+                          onChange={handleChange}
+                          min="0"
+                        />
+                        <Input
+                          label="Vouchers Total (£)"
+                          type="number"
+                          name="soldVouchersTotal"
+                          value={formData.soldVouchersTotal}
+                          onChange={handleChange}
+                          min="0"
+                        />
+                        <Input
+                          label="Memberships Sold"
+                          type="number"
+                          name="soldMembershipsAmount"
+                          value={formData.soldMembershipsAmount}
+                          onChange={handleChange}
+                          min="0"
+                        />
+                        <Input
+                          label="Memberships Total (£)"
+                          type="number"
+                          name="soldMembershipsTotal"
+                          value={formData.soldMembershipsTotal}
+                          onChange={handleChange}
+                          min="0"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Yotta Transactions */}
+                    <div className="bg-gray-50 p-6 rounded-lg">
+                      <h3 className="text-lg font-medium text-gray-900 mb-4">Yotta Transactions</h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        <Input
+                          label="Deposits"
+                          type="number"
+                          name="yottaDepositsAmount"
+                          value={formData.yottaDepositsAmount}
+                          onChange={handleChange}
+                          min="0"
+                        />
+                        <Input
+                          label="Deposits Total (£)"
+                          type="number"
+                          name="yottaDepositsTotal"
+                          value={formData.yottaDepositsTotal}
+                          onChange={handleChange}
+                          min="0"
+                        />
+                        <Input
+                          label="Links"
+                          type="number"
+                          name="yottaLinksAmount"
+                          value={formData.yottaLinksAmount}
+                          onChange={handleChange}
+                          min="0"
+                        />
+                        <Input
+                          label="Links Total (£)"
+                          type="number"
+                          name="yottaLinksTotal"
+                          value={formData.yottaLinksTotal}
+                          onChange={handleChange}
+                          min="0"
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex justify-end space-x-3 mt-6">
+
+                  <div className="flex justify-end pt-4">
                     <Button
                       type="submit"
                       isLoading={isSubmitting}
-                      className="bg-green-900 text-white hover:bg-green-800 transition-colors"
+                      className="bg-green-700 text-white hover:bg-green-900 transition-colors px-4 py-2"
                     >
-                      Submit Information
+                      Submit Survey
                     </Button>
                   </div>
                 </form>

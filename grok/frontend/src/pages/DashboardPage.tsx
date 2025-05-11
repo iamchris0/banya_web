@@ -47,7 +47,7 @@ const DashboardPage: React.FC = () => {
     return <Navigate to="/login" />;
   }
 
-  const totalClients = clients.length;
+  const totalClients = clients.reduce((sum, client) => sum + (client.amountOfPeople || 0), 0);
   const pendingClients = clients.filter((client) => !client.isVerified).length;
   const verifiedClients = clients.filter((client) => client.isVerified).length;
 
@@ -62,9 +62,9 @@ const DashboardPage: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200">
             <div className="text-center">
-              <h3 className="text-xl font-medium text-blue-800 mb-2">Clients</h3>
+              <h3 className="text-xl font-medium text-blue-800 mb-2">Total People</h3>
               <p className="text-3xl font-bold text-blue-900">{totalClients}</p>
-              <p className="text-sm text-blue-700 mt-1">Total clients</p>
+              <p className="text-sm text-blue-700 mt-1">Total visitors</p>
             </div>
           </Card>
           <Card className="bg-gradient-to-br from-amber-50 to-amber-100 border border-amber-200">
@@ -86,22 +86,21 @@ const DashboardPage: React.FC = () => {
           {clients.length === 0 ? (
             <div className="text-center p-4 text-gray-500">
               <p>No recent activity to display.</p>
-              <p className="text-sm mt-1">Add information to see updates here.</p>
+              <p className="text-sm mt-1">Add survey data to see updates here.</p>
             </div>
           ) : (
             <div className="p-4">
-              <h3 className="text-lg font-medium text-gray-800 mb-4">Recent Activity</h3>
+              <h3 className="text-lg font-medium text-gray-800 mb-4">Recent Surveys</h3>
               <ul className="space-y-4">
                 {clients.slice(0, 5).map((client) => (
                   <li key={client.id} className="border-b border-gray-200 pb-2">
                     <p className="text-sm text-gray-600">
-                      <span className="font-medium">{client.name}</span> booked {client.serviceType} for{' '}
-                      {client.duration} on {new Date(client.date).toLocaleDateString()}
+                      Survey on {new Date(client.date).toLocaleDateString()}: {client.amountOfPeople || 0} people,{' '}
+                      {client.newClients || 0} new clients
                     </p>
                     <p className="text-xs text-gray-500">
                       Added by {client.createdBy} • {client.isVerified ? 'Verified' : 'Pending'}
                     </p>
-                    {client.notes && <p className="text-xs text-gray-500 mt-1">Notes: {client.notes}</p>}
                   </li>
                 ))}
               </ul>
