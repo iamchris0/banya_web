@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
+import { Trees as Tree } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import Input from '../components/common/Input';
 import Button from '../components/common/Button';
-import Card from '../components/common/Card';
 
 const LoginPage: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -36,57 +36,73 @@ const LoginPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
-      <Card className="w-full max-w-md bg-white border border-gray-200 shadow-sm p-6">
-        <div className="text-center mb-6">
-          <h1 className="text-xl font-semibold text-green-900">BANYA N°1 ADMIN</h1>
-          <p className="text-gray-500 mt-1">Please sign in to manage your account</p>
+    <div className="min-h-screen flex">
+      {/* Left side with background image and logo */}
+      <div className="hidden lg:flex lg:w-2/5 bg-blue-900 relative">
+        <div 
+          className="absolute inset-0 bg-cover bg-center"
+          style={{
+            backgroundImage: 'url("https://images.pexels.com/photos/7587466/pexels-photo-7587466.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1")',
+            backgroundBlendMode: 'overlay'
+          }}
+        >
+          <div className="absolute inset-0 bg-cyan-900/25"></div>
+
         </div>
-        
-        {error && (
-          <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-md text-sm border border-red-200">
-            {error}
+        <div className="relative z-10 flex flex-col items-center justify-center w-full p-12 text-white">
+          <Tree size={64} className="mb-3" />
+          <h1 className="text-4xl font-bold mb-1">Banya №1</h1>
+          <p className="text-lg text-blue text-center">
+            Welcome to your administrative dashboard
+          </p>
+        </div>
+      </div>
+
+      {/* Right side with login form */}
+      <div className="flex-1 flex items-center justify-center p-8 bg-gray-50">
+        <div className="w-full max-w-md space-y-8">
+          <div className="text-center">
+            <h2 className="text-3xl font-bold text-gray-900">Sign in</h2>
+            <p className="mt-2 text-gray-600">Access your account</p>
           </div>
-        )}
-        
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <Input
-            id="username"
-            type="text"
-            label="Username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            placeholder="Enter your username"
-            className="bg-white border-gray-200"
-            required
-          />
-          
-          <Input
-            id="password"
-            type="password"
-            label="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Enter your password"
-            className="bg-white border-gray-200"
-            required
-          />
-          
-          <div className="mt-6">
+
+          {error && (
+            <div className="p-3 bg-red-50 text-red-700 rounded-md text-sm border border-red-200">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="mt-8 space-y-6">
+            <Input
+              id="username"
+              type="text"
+              label="Username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Enter your username"
+              required
+            />
+            
+            <Input
+              id="password"
+              type="password"
+              label="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter your password"
+              required
+            />
+
             <Button
               type="submit"
-              className="w-full bg-green-700 text-white hover:bg-green-800 transition-colors"
+              className="w-full"
               isLoading={isLoading}
             >
               Sign In
             </Button>
-          </div>
-          
-          <div className="mt-4 text-sm text-center text-gray-500">
-            <p>For testing: Use admin / 123</p>
-          </div>
-        </form>
-      </Card>
+          </form>
+        </div>
+      </div>
     </div>
   );
 };
