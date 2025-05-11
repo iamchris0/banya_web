@@ -1,8 +1,11 @@
 import React, { createContext, useState, useContext, ReactNode } from 'react';
-import { User, AuthState, UserRole } from '../types';
+import { useNavigate } from 'react-router-dom';
+import { jwtDecode } from 'jwt-decode';
+import { AuthState, UserRole } from '../types';
 
 interface AuthContextType extends AuthState {
-  login: (username: string, password: string) => boolean;
+  token: string | null;
+  login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
   hasPermission: (roles: UserRole[]) => boolean;
 }
@@ -12,53 +15,53 @@ const initialState: AuthState = {
   isAuthenticated: false,
 };
 
-// Mockup users for development
-const USERS: User[] = [
-  {
-    username: 'admin',
-    password: '123',
-    role: 'admin',
-  },
-  {
-    username: 'head',
-    password: '123',
-    role: 'head',
-  },
-  {
-    username: 'boss',
-    password: '123',
-    role: 'boss',
-  },
-];
-
 const AuthContext = createContext<AuthContextType>({
   ...initialState,
-  login: () => false,
+  token: null,
+  login: () => Promise.resolve(false),
   logout: () => {},
   hasPermission: () => false,
 });
 
+interface JwtPayload {
+  id: number;
+  username: string;
+  role: UserRole;
+}
+
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [authState, setAuthState] = useState<AuthState>(initialState);
+  const [token, setToken] = useState<string | null>(null);
+  const navigate = useNavigate();
 
-  const login = (username: string, password: string): boolean => {
-    const user = USERS.find(
-      (u) => u.username === username && u.password === password
-    );
-
-    if (user) {
-      setAuthState({
-        user,
-        isAuthenticated: true,
+  const login = async (username: string, password: string): Promise<boolean> => {
+    try {
+      const response = await fetch('http://localhost:2345/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
       });
-      return true;
+      const data = await response.json();
+      if (response.ok) {
+        const decoded: JwtPayload = jwtDecode(data.token);
+        setAuthState({
+          user: { username: decoded.username, role: decoded.role },
+          isAuthenticated: true,
+        });
+        setToken(data.token);
+        return true;
+      } else {
+        throw new Error(data.message || 'Invalid credentials');
+      }
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'An error occurred during login');
     }
-
-    return false;
   };
 
   const logout = () => {
     setAuthState(initialState);
+    setToken(null);
+    navigate('/login');
   };
 
   const hasPermission = (roles: UserRole[]): boolean => {
@@ -72,6 +75,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     <AuthContext.Provider
       value={{
         ...authState,
+        token,
         login,
         logout,
         hasPermission,
@@ -82,4 +86,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   );
 };
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
