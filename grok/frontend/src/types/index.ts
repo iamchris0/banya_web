@@ -2,8 +2,8 @@ export type UserRole = 'admin' | 'head' | 'boss';
 
 export interface User {
   username: string;
-  password: string;
   role: UserRole;
+  password?: string; // Optional to avoid requiring password in AuthContext
 }
 
 export interface AuthState {
@@ -12,10 +12,11 @@ export interface AuthState {
 }
 
 export interface ClientInfo {
-  id?: string;
+  id?: number; // Matches backend's numeric ID
   name: string;
   date: string;
-  services: string[];
+  serviceType: string;
+  duration: string;
   notes: string;
   createdBy: string;
   isVerified: boolean;
