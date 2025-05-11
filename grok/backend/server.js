@@ -7,7 +7,7 @@ const app = express();
 const PORT = 2345;
 const SECRET_KEY = 'your_secret_key'; // Use a secure key in production
 
-app.use(cors());
+app.use(cors({ origin: 'http://localhost:5173' }));
 app.use(bodyParser.json());
 
 // Hardcoded admin user
@@ -21,11 +21,15 @@ let clients = [];
 // Middleware to verify JWT
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Bearer <token>
+  const token = authHeader && authHeader.split(' ')[1];
+  console.log('Received token:', token);
   if (!token) return res.status(401).json({ message: 'Token required' });
 
   jwt.verify(token, SECRET_KEY, (err, user) => {
-    if (err) return res.status(403).json({ message: 'Invalid token' });
+    if (err) {
+      console.error('Token verification error:', err);
+      return res.status(403).json({ message: 'Invalid token' });
+    }
     req.user = user;
     next();
   });
@@ -45,20 +49,53 @@ app.post('/login', (req, res) => {
 
 // Submit client information
 app.post('/api/clients', authenticateToken, (req, res) => {
-  const { name, date, serviceType, duration, notes } = req.body;
-  if (!name || !date || !serviceType || !duration) {
-    return res.status(400).json({ message: 'Missing required fields' });
+  const {
+    amountOfPeople,
+    male,
+    female,
+    otherGender,
+    englishSpeaking,
+    russianSpeaking,
+    offPeakClients,
+    peakTimeClients,
+    newClients,
+    soldVouchersAmount,
+    soldVouchersTotal,
+    soldMembershipsAmount,
+    soldMembershipsTotal,
+    yottaDepositsAmount,
+    yottaDepositsTotal,
+    yottaLinksAmount,
+    yottaLinksTotal,
+    date,
+  } = req.body;
+
+  if (!amountOfPeople || !date) {
+    return res.status(400).json({ message: 'Missing required fields: amountOfPeople, date' });
   }
 
   const client = {
     id: clients.length + 1,
-    name,
+    amountOfPeople: Number(amountOfPeople) || 0,
+    male: Number(male) || 0,
+    female: Number(female) || 0,
+    otherGender: Number(otherGender) || 0,
+    englishSpeaking: Number(englishSpeaking) || 0,
+    russianSpeaking: Number(russianSpeaking) || 0,
+    offPeakClients: Number(offPeakClients) || 0,
+    peakTimeClients: Number(peakTimeClients) || 0,
+    newClients: Number(newClients) || 0,
+    soldVouchersAmount: Number(soldVouchersAmount) || 0,
+    soldVouchersTotal: Number(soldVouchersTotal) || 0,
+    soldMembershipsAmount: Number(soldMembershipsAmount) || 0,
+    soldMembershipsTotal: Number(soldMembershipsTotal) || 0,
+    yottaDepositsAmount: Number(yottaDepositsAmount) || 0,
+    yottaDepositsTotal: Number(yottaDepositsTotal) || 0,
+    yottaLinksAmount: Number(yottaLinksAmount) || 0,
+    yottaLinksTotal: Number(yottaLinksTotal) || 0,
     date,
-    serviceType,
-    duration,
-    notes: notes || '',
     createdBy: req.user.username,
-    isVerified: false
+    isVerified: false,
   };
 
   clients.push(client);
