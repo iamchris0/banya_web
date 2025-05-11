@@ -10,6 +10,7 @@ const DashboardPage: React.FC = () => {
   const [clients, setClients] = useState<ClientInfo[]>([]);
   const [error, setError] = useState('');
   const { token, isAuthenticated } = useAuth();
+  const [dateRange, setDateRange] = useState('today');
 
   const fetchClients = async () => {
     if (!token) {
@@ -47,9 +48,30 @@ const DashboardPage: React.FC = () => {
     return <Navigate to="/login" />;
   }
 
-  const totalClients = clients.reduce((sum, client) => sum + (client.amountOfPeople || 0), 0);
-  const pendingClients = clients.filter((client) => !client.isVerified).length;
-  const verifiedClients = clients.filter((client) => client.isVerified).length;
+  const filterClientsByDate = (clients: ClientInfo[], range: string) => {
+    const now = new Date();
+    return clients.filter((client) => {
+      const clientDate = new Date(client.date);
+      switch (range) {
+        case 'today':
+          return clientDate.toDateString() === now.toDateString();
+        case 'last7':
+          return clientDate >= new Date(now.setDate(now.getDate() - 7));
+        case 'last30':
+          return clientDate >= new Date(now.setDate(now.getDate() - 30));
+        case 'all':
+          return true;
+        default:
+          return false;
+      }
+    });
+  };
+
+  const filteredClients = filterClientsByDate(clients, dateRange);
+  const totalClients = filteredClients.reduce((sum, client) => sum + (client.amountOfPeople || 0), 0);
+  const pendingClients = filteredClients.filter((client) => !client.isVerified).length;
+  const verifiedClients = filteredClients.filter((client) => client.isVerified).length;
+  const latestClient = filteredClients[0];
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800 flex flex-col pt-6 relative">
@@ -59,6 +81,22 @@ const DashboardPage: React.FC = () => {
             <span className="block sm:inline">{error}</span>
           </div>
         )}
+
+        {/* Date Range Selector */}
+        <div className="mb-6">
+          <select
+            value={dateRange}
+            onChange={(e) => setDateRange(e.target.value)}
+            className="w-full md:w-auto p-2 border border-gray-300 rounded-lg bg-white text-gray-800"
+          >
+            <option value="today">Today</option>
+            <option value="last7">Last 7 Days</option>
+            <option value="last30">Last 30 Days</option>
+            <option value="all">All Time</option>
+          </select>
+        </div>
+
+        {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200">
             <div className="text-center">
@@ -82,31 +120,35 @@ const DashboardPage: React.FC = () => {
             </div>
           </Card>
         </div>
-        <Card className="bg-white border border-gray-200 shadow-sm">
-          {clients.length === 0 ? (
+
+        {/* Detailed Recent Survey Card */}
+        {latestClient && (
+          <Card title="Latest Survey" className="bg-white border border-gray-200 shadow-sm">
+            <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-gray-600"><strong>Date:</strong> {new Date(latestClient.date).toLocaleDateString()}</p>
+                <p className="text-sm text-gray-600"><strong>Total Visitors:</strong> {latestClient.amountOfPeople || 0}</p>
+                <p className="text-sm text-gray-600"><strong>Male:</strong> {latestClient.male || 0}</p>
+                <p className="text-sm text-gray-600"><strong>Female:</strong> {latestClient.female || 0}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600"><strong>New Clients:</strong> {latestClient.newClients || 0}</p>
+                <p className="text-sm text-gray-600"><strong>English Speaking:</strong> {latestClient.englishSpeaking || 0}</p>
+                <p className="text-sm text-gray-600"><strong>Russian Speaking:</strong> {latestClient.russianSpeaking || 0}</p>
+                <p className="text-sm text-gray-600"><strong>Created By:</strong> {latestClient.createdBy}</p>
+                <p className="text-sm text-gray-600"><strong>Status:</strong> {latestClient.isVerified ? 'Verified' : 'Pending'}</p>
+              </div>
+            </div>
+          </Card>
+        )}
+        {!latestClient && (
+          <Card className="bg-white border border-gray-200 shadow-sm">
             <div className="text-center p-4 text-gray-500">
-              <p>No recent activity to display.</p>
-              <p className="text-sm mt-1">Add survey data to see updates here.</p>
+              <p>No recent survey data to display.</p>
+              <p className="text-sm mt-1">Add survey data to see details here.</p>
             </div>
-          ) : (
-            <div className="p-4">
-              <h3 className="text-lg font-medium text-gray-800 mb-4">Recent Surveys</h3>
-              <ul className="space-y-4">
-                {clients.slice(0, 5).map((client) => (
-                  <li key={client.id} className="border-b border-gray-200 pb-2">
-                    <p className="text-sm text-gray-600">
-                      Survey on {new Date(client.date).toLocaleDateString()}: {client.amountOfPeople || 0} people,{' '}
-                      {client.newClients || 0} new clients
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      Added by {client.createdBy} • {client.isVerified ? 'Verified' : 'Pending'}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </Card>
+          </Card>
+        )}
       </div>
 
       {/* Floating "+" Button */}
