@@ -17,7 +17,7 @@ const Header: React.FC = () => {
 
   return (
     <header className="bg-green-900 text-white shadow-md">
-      <div className="container mx-auto px-6 py-4">
+      <div className="container mx-auto py-4">
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-2">
             <span className="text-xl font-semibold">BANYA N°1</span>
@@ -32,16 +32,6 @@ const Header: React.FC = () => {
             >
               Dashboard
             </Link>
-            {user?.role === 'admin' && (
-              <Link
-                to="/add-info"
-                className={`px-3 py-2 rounded-md transition-colors ${
-                  location.pathname === '/add-info' ? 'bg-green-800 text-white' : 'text-white hover:bg-green-800'
-                }`}
-              >
-                Add Information
-              </Link>
-            )}
           </nav>
 
           <div className="flex items-center space-x-4">
