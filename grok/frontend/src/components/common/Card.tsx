@@ -1,20 +1,16 @@
-import React, { ReactNode } from 'react';
+import React from 'react';
 
 interface CardProps {
-  children: ReactNode;
-  title?: string;
+  title?: React.ReactNode; // Changed from string to React.ReactNode
   className?: string;
+  children: React.ReactNode;
 }
 
-const Card: React.FC<CardProps> = ({ children, title, className = '' }) => {
+const Card: React.FC<CardProps> = ({ title, className, children }) => {
   return (
-    <div className={`bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200 ${className}`}>
-      {title && (
-        <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-green-900">{title}</h3>
-        </div>
-      )}
-      <div className="px-6 py-4">{children}</div>
+    <div className={`p-4 bg-white rounded-lg shadow ${className}`}>
+      {title && <h2 className="text-xl font-semibold mb-4">{title}</h2>}
+      {children}
     </div>
   );
 };
