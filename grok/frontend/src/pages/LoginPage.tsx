@@ -11,7 +11,7 @@ const LoginPage: React.FC = () => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const { login, isAuthenticated } = useAuth();
+  const { login, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -20,9 +20,10 @@ const LoginPage: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const success = await login(username, password);
+      const { success, role } = await login(username, password);
       if (success) {
-        navigate('/');
+        const redirectPath = role === 'head' ? '/verification' : '/dashboard';
+        navigate(redirectPath);
       } else {
         setError('Invalid username or password');
       }
@@ -34,12 +35,12 @@ const LoginPage: React.FC = () => {
   };
 
   if (isAuthenticated) {
-    return <Navigate to="/" />;
+    const redirectPath = user?.role === 'head' ? '/verification' : '/dashboard';
+    return <Navigate to={redirectPath} />;
   }
 
   return (
     <div className="min-h-screen flex">
-      {/* Left side with background image and logo */}
       <div className="hidden lg:flex lg:w-2/5 bg-blue-900 relative">
         <div
           className="absolute inset-0 bg-cover bg-center"
@@ -60,7 +61,6 @@ const LoginPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Right side with login form */}
       <div className="flex-1 flex items-center justify-center p-8 bg-gray-50">
         <div className="w-full max-w-md space-y-8">
           <div className="text-center">

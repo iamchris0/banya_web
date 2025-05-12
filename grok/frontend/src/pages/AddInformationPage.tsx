@@ -11,9 +11,10 @@ interface SurveyModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmitSuccess: () => void;
+  initialData?: ClientInfo;
 }
 
-const SurveyModal: React.FC<SurveyModalProps> = ({ isOpen, onClose, onSubmitSuccess }) => {
+const SurveyModal: React.FC<SurveyModalProps> = ({ isOpen, onClose, onSubmitSuccess, initialData }) => {
   const { user, token } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -44,15 +45,15 @@ const SurveyModal: React.FC<SurveyModalProps> = ({ isOpen, onClose, onSubmitSucc
 
   useEffect(() => {
     if (isOpen) {
-      // Preserve the existing date instead of resetting it to today's date
-      setFormData((prev) => ({
+      setFormData(initialData ? {
         ...initialFormData,
-        date: prev.date || initialFormData.date, // Keep the selected date or use today's date as fallback
-      }));
+        ...initialData,
+        date: initialData.date || initialFormData.date,
+      } : initialFormData);
       setError('');
       setShowSuccess(false);
     }
-  }, [isOpen, user]);
+  }, [isOpen, initialData, user]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -83,8 +84,13 @@ const SurveyModal: React.FC<SurveyModalProps> = ({ isOpen, onClose, onSubmitSucc
     setError('');
 
     try {
-      const response = await fetch('http://localhost:2345/api/clients', {
-        method: 'POST',
+      const url = initialData?.id
+        ? `http://localhost:2345/api/clients/${initialData.id}`
+        : 'http://localhost:2345/api/clients';
+      const method = initialData?.id ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
@@ -113,7 +119,7 @@ const SurveyModal: React.FC<SurveyModalProps> = ({ isOpen, onClose, onSubmitSucc
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Failed to submit client: ${response.status}`);
+        throw new Error(errorData.message || `Failed to ${initialData?.id ? 'update' : 'submit'} client: ${response.status}`);
       }
 
       setIsSubmitting(false);
@@ -160,11 +166,13 @@ const SurveyModal: React.FC<SurveyModalProps> = ({ isOpen, onClose, onSubmitSucc
               </button>
 
               <div className="p-6">
-                <h2 className="text-2xl font-semibold text-gray-800 mb-6">Daily Client Survey</h2>
+                <h2 className="text-2xl font-semibold text-gray-800 mb-6">
+                  {initialData?.id ? 'Edit Client Survey' : 'Daily Client Survey'}
+                </h2>
 
                 {showSuccess && (
                   <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-md">
-                    <p className="text-green-800">Survey successfully submitted!</p>
+                    <p className="text-green-800">Survey successfully {initialData?.id ? 'updated' : 'submitted'}!</p>
                   </div>
                 )}
 
@@ -370,7 +378,7 @@ const SurveyModal: React.FC<SurveyModalProps> = ({ isOpen, onClose, onSubmitSucc
                       isLoading={isSubmitting}
                       className="bg-green-700 text-white hover:bg-green-900 transition-colors px-4 py-2"
                     >
-                      Submit Survey
+                      {initialData?.id ? 'Update Survey' : 'Submit Survey'}
                     </Button>
                   </div>
                 </form>
