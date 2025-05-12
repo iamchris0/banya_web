@@ -44,7 +44,11 @@ const SurveyModal: React.FC<SurveyModalProps> = ({ isOpen, onClose, onSubmitSucc
 
   useEffect(() => {
     if (isOpen) {
-      setFormData(initialFormData);
+      // Preserve the existing date instead of resetting it to today's date
+      setFormData((prev) => ({
+        ...initialFormData,
+        date: prev.date || initialFormData.date, // Keep the selected date or use today's date as fallback
+      }));
       setError('');
       setShowSuccess(false);
     }
@@ -52,7 +56,12 @@ const SurveyModal: React.FC<SurveyModalProps> = ({ isOpen, onClose, onSubmitSucc
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    if (value === '' || /^[0-9]*$/.test(value)) {
+    if (name === 'date') {
+      setFormData((prev) => ({
+        ...prev,
+        date: value,
+      }));
+    } else if (value === '' || /^[0-9]*$/.test(value)) {
       setFormData((prev) => ({
         ...prev,
         [name]: value === '' ? '' : parseInt(value, 10),

@@ -4,13 +4,14 @@ import Card from '../components/common/Card';
 import SurveyModal from './AddInformationPage';
 import { useAuth } from '../context/AuthContext';
 import { ClientInfo } from '../types';
+import { FaArrowLeft, FaArrowRight } from 'react-icons/fa';
 
 const DashboardPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [clients, setClients] = useState<ClientInfo[]>([]);
   const [error, setError] = useState('');
   const { token, isAuthenticated } = useAuth();
-  const [dateRange, setDateRange] = useState('today');
+  const [selectedDate, setSelectedDate] = useState(new Date());
 
   const fetchClients = async () => {
     if (!token) {
@@ -48,52 +49,56 @@ const DashboardPage: React.FC = () => {
     return <Navigate to="/login" />;
   }
 
-  const filterClientsByDate = (clients: ClientInfo[], range: string) => {
-    const now = new Date();
+  const formatDate = (date: Date) => {
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = date.toLocaleString('default', { month: 'long' });
+    const year = date.getFullYear();
+    return `${day} ${month} ${year}`;
+  };
+
+  const filterClientsByDate = (clients: ClientInfo[], date: Date) => {
     return clients.filter((client) => {
       const clientDate = new Date(client.date);
-      switch (range) {
-        case 'today':
-          return clientDate.toDateString() === now.toDateString();
-        case 'last7':
-          return clientDate >= new Date(now.setDate(now.getDate() - 7));
-        case 'last30':
-          return clientDate >= new Date(now.setDate(now.getDate() - 30));
-        case 'all':
-          return true;
-        default:
-          return false;
-      }
+      return clientDate.toDateString() === date.toDateString();
     });
   };
 
-  const filteredClients = filterClientsByDate(clients, dateRange);
+  const handlePrevDay = () => {
+    const newDate = new Date(selectedDate);
+    newDate.setDate(newDate.getDate() - 1);
+    setSelectedDate(newDate);
+  };
+
+  const handleNextDay = () => {
+    const newDate = new Date(selectedDate);
+    newDate.setDate(newDate.getDate() + 1);
+    setSelectedDate(newDate);
+  };
+
+  const filteredClients = filterClientsByDate(clients, selectedDate);
   const totalClients = filteredClients.reduce((sum, client) => sum + (client.amountOfPeople || 0), 0);
   const pendingClients = filteredClients.filter((client) => !client.isVerified).length;
   const verifiedClients = filteredClients.filter((client) => client.isVerified).length;
   const latestClient = filteredClients[0];
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-800 flex flex-col pt-6 relative">
-      <div className="w-full max-w-7xl mx-auto">
+    <div className="flex flex-col h-full bg-gray-50 text-gray-800 p-6 relative">
+      <div className="flex-grow w-full max-w-7xl mx-auto flex flex-col">
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded relative mb-4" role="alert">
             <span className="block sm:inline">{error}</span>
           </div>
         )}
 
-        {/* Date Range Selector */}
-        <div className="mb-6">
-          <select
-            value={dateRange}
-            onChange={(e) => setDateRange(e.target.value)}
-            className="w-full md:w-auto p-2 border border-gray-300 rounded-lg bg-white text-gray-800"
-          >
-            <option value="today">Today</option>
-            <option value="last7">Last 7 Days</option>
-            <option value="last30">Last 30 Days</option>
-            <option value="all">All Time</option>
-          </select>
+        {/* Date Navigation */}
+        <div className="mb-6 flex items-center justify-center space-x-4">
+          <button onClick={handlePrevDay} className="p-2 text-gray-800 hover:text-green-900">
+            <FaArrowLeft size={20} />
+          </button>
+          <span className="text-xl font-medium">{formatDate(selectedDate)}</span>
+          <button onClick={handleNextDay} className="p-2 text-gray-800 hover:text-green-900">
+            <FaArrowRight size={20} />
+          </button>
         </div>
 
         {/* Statistics Cards */}
@@ -123,26 +128,70 @@ const DashboardPage: React.FC = () => {
 
         {/* Detailed Recent Survey Card */}
         {latestClient && (
-          <Card title="Latest Survey" className="bg-white border border-gray-200 shadow-sm">
-            <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-gray-600"><strong>Date:</strong> {new Date(latestClient.date).toLocaleDateString()}</p>
-                <p className="text-sm text-gray-600"><strong>Total Visitors:</strong> {latestClient.amountOfPeople || 0}</p>
-                <p className="text-sm text-gray-600"><strong>Male:</strong> {latestClient.male || 0}</p>
-                <p className="text-sm text-gray-600"><strong>Female:</strong> {latestClient.female || 0}</p>
+          <Card title="Latest Survey" className="bg-white border border-gray-200 shadow-sm flex-grow overflow-auto">
+            <div className="p-6 space-y-8">
+              {/* First Horizontal Block */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* General Information */}
+                <div className="bg-gray-50 p-6 rounded-lg">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">General Information</h3>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <p className="text-sm text-gray-600"><strong>Total Visitors:</strong> {latestClient.amountOfPeople || 0}</p>
+                      <p className="text-sm text-gray-600"><strong>New Clients:</strong> {latestClient.newClients || 0}</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <p className="text-sm text-gray-600"><strong>Male:</strong> {latestClient.male || 0}</p>
+                      <p className="text-sm text-gray-600"><strong>Female:</strong> {latestClient.female || 0}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Demographics & Timing */}
+                <div className="bg-gray-50 p-6 rounded-lg">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Demographics & Timing</h3>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <p className="text-sm text-gray-600"><strong>English Speaking:</strong> {latestClient.englishSpeaking || 0}</p>
+                      <p className="text-sm text-gray-600"><strong>Russian Speaking:</strong> {latestClient.russianSpeaking || 0}</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <p className="text-sm text-gray-600"><strong>Off-Peak:</strong> {latestClient.offPeakClients || 0}</p>
+                      <p className="text-sm text-gray-600"><strong>Peak-Time:</strong> {latestClient.peakTimeClients || 0}</p>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div>
-                <p className="text-sm text-gray-600"><strong>New Clients:</strong> {latestClient.newClients || 0}</p>
-                <p className="text-sm text-gray-600"><strong>English Speaking:</strong> {latestClient.englishSpeaking || 0}</p>
-                <p className="text-sm text-gray-600"><strong>Russian Speaking:</strong> {latestClient.russianSpeaking || 0}</p>
-                <p className="text-sm text-gray-600"><strong>Created By:</strong> {latestClient.createdBy}</p>
-                <p className="text-sm text-gray-600"><strong>Status:</strong> {latestClient.isVerified ? 'Verified' : 'Pending'}</p>
+
+              {/* Second Horizontal Block */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Sales Information */}
+                <div className="bg-gray-50 p-6 rounded-lg">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Sales Information</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <p className="text-sm text-gray-600"><strong>Vouchers Sold:</strong> {latestClient.soldVouchersAmount || 0}</p>
+                    <p className="text-sm text-gray-600"><strong>Vouchers Total (£):</strong> {latestClient.soldVouchersTotal || 0}</p>
+                    <p className="text-sm text-gray-600"><strong>Memberships Sold:</strong> {latestClient.soldMembershipsAmount || 0}</p>
+                    <p className="text-sm text-gray-600"><strong>Memberships Total (£):</strong> {latestClient.soldMembershipsTotal || 0}</p>
+                  </div>
+                </div>
+
+                {/* Yotta Transactions */}
+                <div className="bg-gray-50 p-6 rounded-lg">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Yotta Transactions</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <p className="text-sm text-gray-600"><strong>Deposits:</strong> {latestClient.yottaDepositsAmount || 0}</p>
+                    <p className="text-sm text-gray-600"><strong>Deposits Total (£):</strong> {latestClient.yottaDepositsTotal || 0}</p>
+                    <p className="text-sm text-gray-600"><strong>Links:</strong> {latestClient.yottaLinksAmount || 0}</p>
+                    <p className="text-sm text-gray-600"><strong>Links Total (£):</strong> {latestClient.yottaLinksTotal || 0}</p>
+                  </div>
+                </div>
               </div>
             </div>
           </Card>
         )}
         {!latestClient && (
-          <Card className="bg-white border border-gray-200 shadow-sm">
+          <Card className="bg-white border border-gray-200 shadow-sm flex-grow">
             <div className="text-center p-4 text-gray-500">
               <p>No recent survey data to display.</p>
               <p className="text-sm mt-1">Add survey data to see details here.</p>
