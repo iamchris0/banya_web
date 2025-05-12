@@ -23,18 +23,58 @@ const Header: React.FC = () => {
             <span className="text-xl font-semibold">BANYA N°1</span>
           </div>
 
-          <nav className="flex items-center space-x-4">
+          <nav className="flex items-center space-x-2">
+            {user?.role === 'admin' && (
+              <Link
+                to="/daily-data"
+                className={`px-3 py-2 rounded-md transition-colors ${
+                  location.pathname === '/daily-data' ? 'bg-green-800 text-white' : 'text-white hover:bg-green-800'
+                }`}
+              >
+                Daily Data
+              </Link>
+            )}
+            {user?.role === 'head' && (
+              <Link
+                to="/verification"
+                className={`px-3 py-2 rounded-md transition-colors ${
+                  location.pathname === '/verification' ? 'bg-green-800 text-white' : 'text-white hover:bg-green-800'
+                }`}
+              >
+                Verification
+              </Link>
+            )}
+            {user?.role === 'boss' && (
+              <>
+                <Link
+                  to="/daily-data"
+                  className={`px-3 py-2 rounded-md transition-colors ${
+                    location.pathname === '/daily-data' ? 'bg-green-800 text-white' : 'text-white hover:bg-green-800'
+                  }`}
+                >
+                  Daily Data
+                </Link>
+                <Link
+                  to="/weekly-data"
+                  className={`px-3 py-2 rounded-md transition-colors ${
+                    location.pathname === '/weekly-data' ? 'bg-green-800 text-white' : 'text-white hover:bg-green-800'
+                  }`}
+                >
+                  Weekly Data
+                </Link>
+              </>
+            )}
             <Link
-              to="/"
+              to="/dashboard"
               className={`px-3 py-2 rounded-md transition-colors ${
-                location.pathname === '/' ? 'bg-green-800 text-white' : 'text-white hover:bg-green-800'
+                location.pathname === '/dashboard' ? 'bg-green-800 text-white' : 'text-white hover:bg-green-800'
               }`}
             >
               Dashboard
             </Link>
           </nav>
 
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2">
             <div className="text-sm">
               <span className="block text-green-200">Logged in as</span>
               <span className="font-medium">{user?.username} ({user?.role})</span>
