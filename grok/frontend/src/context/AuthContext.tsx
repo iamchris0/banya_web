@@ -5,7 +5,7 @@ import { AuthState, UserRole } from '../types';
 
 interface AuthContextType extends AuthState {
   token: string | null;
-  login: (username: string, password: string) => Promise<boolean>;
+  login: (username: string, password: string) => Promise<{ success: boolean; role?: UserRole }>;
   logout: () => void;
   hasPermission: (roles: UserRole[]) => boolean;
 }
@@ -18,7 +18,7 @@ const initialState: AuthState = {
 const AuthContext = createContext<AuthContextType>({
   ...initialState,
   token: null,
-  login: () => Promise.resolve(false),
+  login: () => Promise.resolve({ success: false }),
   logout: () => {},
   hasPermission: () => false,
 });
@@ -34,7 +34,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [token, setToken] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const login = async (username: string, password: string): Promise<boolean> => {
+  const login = async (username: string, password: string): Promise<{ success: boolean; role?: UserRole }> => {
     try {
       const response = await fetch('http://localhost:2345/login', {
         method: 'POST',
@@ -49,7 +49,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           isAuthenticated: true,
         });
         setToken(data.token);
-        return true;
+        return { success: true, role: decoded.role };
       } else {
         throw new Error(data.message || 'Invalid credentials');
       }
