@@ -108,7 +108,7 @@ app.post('/api/clients', authenticateToken, restrictToRoles(['admin']), (req, re
   };
 
   clients.push(client);
-  res.json({ message: 'Client information submitted', clients });
+  res.json({ message: 'Client information submitted', client });
 });
 
 // Update client information
@@ -165,7 +165,7 @@ app.put('/api/clients/:id', authenticateToken, restrictToRoles(['admin', 'head']
     yottaLinksAmount: Number(yottaLinksAmount) || 0,
     yottaLinksTotal: Number(yottaLinksTotal) || 0,
     date,
-    isVerified: req.user.role === 'admin' && wasVerified ? false : clients[clientIndex].isVerified, // Reset to false if admin updates a verified client
+    isVerified: req.user.role === 'admin' && wasVerified ? false : clients[clientIndex].isVerified,
   };
 
   clients[clientIndex] = updatedClient;
@@ -210,31 +210,21 @@ let weeklyData = [];
 // Submit or update weekly data
 app.post('/api/weekly-data', authenticateToken, restrictToRoles(['boss']), (req, res) => {
   const {
-    amountOfPeople,
-    male,
-    female,
-    otherGender,
-    englishSpeaking,
-    russianSpeaking,
-    offPeakClients,
-    peakTimeClients,
-    newClients,
-    soldVouchersAmount,
-    soldVouchersTotal,
-    soldMembershipsAmount,
-    soldMembershipsTotal,
-    yottaDepositsAmount,
-    yottaDepositsTotal,
-    yottaLinksAmount,
-    yottaLinksTotal,
+    staffBonus,
+    onDeskBonus,
+    voucherSalesBonus,
+    privateBookingBonus,
+    preBookedValueNextWeek,
+    preBookedPeopleNextWeek,
     date,
+    createdBy,
   } = req.body;
 
-  if (!amountOfPeople || !date) {
-    return res.status(400).json({ message: 'Missing required fields: Amount Of People or Date' });
+  if (!date) {
+    return res.status(400).json({ message: 'Missing required field: Date' });
   }
 
-  // Find existing data for the week
+  // Normalize date to week start (Monday)
   const weekStart = new Date(date);
   const dayOfWeek = weekStart.getDay();
   const diff = weekStart.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
@@ -245,25 +235,16 @@ app.post('/api/weekly-data', authenticateToken, restrictToRoles(['boss']), (req,
 
   const data = {
     id: existingDataIndex === -1 ? weeklyData.length + 1 : weeklyData[existingDataIndex].id,
-    amountOfPeople: Number(amountOfPeople) || 0,
-    male: Number(male) || 0,
-    female: Number(female) || 0,
-    otherGender: Number(otherGender) || 0,
-    englishSpeaking: Number(englishSpeaking) || 0,
-    russianSpeaking: Number(russianSpeaking) || 0,
-    offPeakClients: Number(offPeakClients) || 0,
-    peakTimeClients: Number(peakTimeClients) || 0,
-    newClients: Number(newClients) || 0,
-    soldVouchersAmount: Number(soldVouchersAmount) || 0,
-    soldVouchersTotal: Number(soldVouchersTotal) || 0,
-    soldMembershipsAmount: Number(soldMembershipsAmount) || 0,
-    soldMembershipsTotal: Number(soldMembershipsTotal) || 0,
-    yottaDepositsAmount: Number(yottaDepositsAmount) || 0,
-    yottaDepositsTotal: Number(yottaDepositsTotal) || 0,
-    yottaLinksAmount: Number(yottaLinksAmount) || 0,
-    yottaLinksTotal: Number(yottaLinksTotal) || 0,
+    staffBonus: Number(staffBonus) || 0,
+    onDeskBonus: Number(onDeskBonus) || 0,
+    voucherSalesBonus: Number(voucherSalesBonus) || 0,
+    privateBookingBonus: Number(privateBookingBonus) || 0,
+    preBookedValueNextWeek: Number(preBookedValueNextWeek) || 0,
+    preBookedPeopleNextWeek: Number(preBookedPeopleNextWeek) || 0,
     date: weekStartStr,
+    createdBy: createdBy || req.user.username,
     isVerified: false,
+    status: existingDataIndex === -1 ? 'edited' : 'confirmed',
   };
 
   if (existingDataIndex === -1) {
@@ -271,6 +252,7 @@ app.post('/api/weekly-data', authenticateToken, restrictToRoles(['boss']), (req,
   } else {
     weeklyData[existingDataIndex] = data;
   }
+
   res.json({ message: 'Weekly data submitted', weeklyData: data });
 });
 
@@ -278,24 +260,14 @@ app.post('/api/weekly-data', authenticateToken, restrictToRoles(['boss']), (req,
 app.put('/api/weekly-data/:id', authenticateToken, restrictToRoles(['boss']), (req, res) => {
   const { id } = req.params;
   const {
-    amountOfPeople,
-    male,
-    female,
-    otherGender,
-    englishSpeaking,
-    russianSpeaking,
-    offPeakClients,
-    peakTimeClients,
-    newClients,
-    soldVouchersAmount,
-    soldVouchersTotal,
-    soldMembershipsAmount,
-    soldMembershipsTotal,
-    yottaDepositsAmount,
-    yottaDepositsTotal,
-    yottaLinksAmount,
-    yottaLinksTotal,
+    staffBonus,
+    onDeskBonus,
+    voucherSalesBonus,
+    privateBookingBonus,
+    preBookedValueNextWeek,
+    preBookedPeopleNextWeek,
     date,
+    createdBy,
   } = req.body;
 
   const dataIndex = weeklyData.findIndex(item => item.id === Number(id));
@@ -303,8 +275,8 @@ app.put('/api/weekly-data/:id', authenticateToken, restrictToRoles(['boss']), (r
     return res.status(404).json({ message: 'Weekly data not found' });
   }
 
-  if (!amountOfPeople || !date) {
-    return res.status(400).json({ message: 'Missing required fields: Amount Of People or Date' });
+  if (!date) {
+    return res.status(400).json({ message: 'Missing required field: Date' });
   }
 
   const weekStart = new Date(date);
@@ -315,25 +287,16 @@ app.put('/api/weekly-data/:id', authenticateToken, restrictToRoles(['boss']), (r
 
   const updatedData = {
     ...weeklyData[dataIndex],
-    amountOfPeople: Number(amountOfPeople) || 0,
-    male: Number(male) || 0,
-    female: Number(female) || 0,
-    otherGender: Number(otherGender) || 0,
-    englishSpeaking: Number(englishSpeaking) || 0,
-    russianSpeaking: Number(russianSpeaking) || 0,
-    offPeakClients: Number(offPeakClients) || 0,
-    peakTimeClients: Number(peakTimeClients) || 0,
-    newClients: Number(newClients) || 0,
-    soldVouchersAmount: Number(soldVouchersAmount) || 0,
-    soldVouchersTotal: Number(soldVouchersTotal) || 0,
-    soldMembershipsAmount: Number(soldMembershipsAmount) || 0,
-    soldMembershipsTotal: Number(soldMembershipsTotal) || 0,
-    yottaDepositsAmount: Number(yottaDepositsAmount) || 0,
-    yottaDepositsTotal: Number(yottaDepositsTotal) || 0,
-    yottaLinksAmount: Number(yottaLinksAmount) || 0,
-    yottaLinksTotal: Number(yottaLinksTotal) || 0,
+    staffBonus: Number(staffBonus) || 0,
+    onDeskBonus: Number(onDeskBonus) || 0,
+    voucherSalesBonus: Number(voucherSalesBonus) || 0,
+    privateBookingBonus: Number(privateBookingBonus) || 0,
+    preBookedValueNextWeek: Number(preBookedValueNextWeek) || 0,
+    preBookedPeopleNextWeek: Number(preBookedPeopleNextWeek) || 0,
     date: weekStartStr,
-    isVerified: false, // Reset to false on update
+    createdBy: createdBy || req.user.username,
+    isVerified: false,
+    status: 'edited',
   };
 
   weeklyData[dataIndex] = updatedData;
@@ -343,7 +306,7 @@ app.put('/api/weekly-data/:id', authenticateToken, restrictToRoles(['boss']), (r
 // Verify weekly data
 app.patch('/api/weekly-data/:id/verify', authenticateToken, restrictToRoles(['boss']), (req, res) => {
   const { id } = req.params;
-  const { isVerified } = req.body;
+  const { isVerified, status } = req.body;
 
   const dataIndex = weeklyData.findIndex(item => item.id === Number(id));
   if (dataIndex === -1) {
@@ -355,6 +318,7 @@ app.patch('/api/weekly-data/:id/verify', authenticateToken, restrictToRoles(['bo
   }
 
   weeklyData[dataIndex].isVerified = isVerified;
+  weeklyData[dataIndex].status = status || 'confirmed';
   res.json({ message: 'Weekly data verification status updated', weeklyData: weeklyData[dataIndex] });
 });
 
@@ -366,7 +330,7 @@ app.get('/api/weekly-data', authenticateToken, restrictToRoles(['boss']), (req, 
   }
 
   const weekData = weeklyData.find(item => item.date === weekStart) || null;
-  res.json({ weeklyData });
+  res.json({ weeklyData: weekData });
 });
 
 app.listen(PORT, () => {
