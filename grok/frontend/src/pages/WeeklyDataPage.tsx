@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { ClientInfo } from '../types';
+import { ClientInfo, Status } from '../types';
 import Card from '../components/common/Card';
 import { FaRegEdit, FaCheck, FaArrowLeft, FaArrowRight } from 'react-icons/fa';
-import SurveyModal from './AddInformationPage';
+import WeeklyDataSurveyModal from './WeeklyDataSurveyModal';
 import { Navigate } from 'react-router-dom';
 
 const WeeklyDataPage: React.FC = () => {
@@ -14,6 +14,7 @@ const WeeklyDataPage: React.FC = () => {
   const [selectedWeekStart, setSelectedWeekStart] = useState(new Date());
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [direction, setDirection] = useState<'left' | 'right' | null>(null);
+
 
   // Restrict access to "boss" role
   if (user?.role !== 'boss') {
@@ -36,6 +37,7 @@ const WeeklyDataPage: React.FC = () => {
     setError('');
     try {
       const weekStart = selectedWeekStart.toISOString().split('T')[0];
+      console.log('Fetching weekly data for weekStart:', weekStart); // Debug log
       const response = await fetch(`http://localhost:2345/api/weekly-data?weekStart=${weekStart}`, {
         method: 'GET',
         headers: {
@@ -48,30 +50,20 @@ const WeeklyDataPage: React.FC = () => {
         throw new Error(errorData.message || `Failed to fetch weekly data: ${response.status}`);
       }
       const data = await response.json();
-      // If no data exists for the week, initialize with defaults
+      console.log('Fetched weekly data:', data); // Debug log
       setWeeklyData(
         data.weeklyData || {
           id: null,
-          amountOfPeople: 0,
-          male: 0,
-          female: 0,
-          otherGender: 0,
-          englishSpeaking: 0,
-          russianSpeaking: 0,
-          offPeakClients: 0,
-          peakTimeClients: 0,
-          newClients: 0,
-          soldVouchersAmount: 0,
-          soldVouchersTotal: 0,
-          soldMembershipsAmount: 0,
-          soldMembershipsTotal: 0,
-          yottaDepositsAmount: 0,
-          yottaDepositsTotal: 0,
-          yottaLinksAmount: 0,
-          yottaLinksTotal: 0,
+          staffBonus: 0,
+          onDeskBonus: 0,
+          voucherSalesBonus: 0,
+          privateBookingBonus: 0,
+          preBookedValueNextWeek: 0,
+          preBookedPeopleNextWeek: 0,
           date: weekStart,
-          createdBy: user.username,
+          createdBy: user?.username || '',
           isVerified: false,
+          status: 'edited' as Status,
         }
       );
     } catch (err) {
@@ -135,10 +127,15 @@ const WeeklyDataPage: React.FC = () => {
   };
 
   const handleConfirm = async () => {
-    if (!token || !weeklyData?.id) {
-      setError('No authentication token or data ID available');
+    if (!token) {
+      setError('No authentication token available');
       return;
     }
+    if (!weeklyData?.id) {
+      setError('No data ID available. Please submit data first.');
+      return;
+    }
+    console.log('Confirming data:', { token, id: weeklyData.id }); // Debug log
     try {
       const response = await fetch(`http://localhost:2345/api/weekly-data/${weeklyData.id}/verify`, {
         method: 'PATCH',
@@ -146,7 +143,7 @@ const WeeklyDataPage: React.FC = () => {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ isVerified: true }),
+        body: JSON.stringify({ isVerified: true, status: 'confirmed' as Status }),
       });
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -160,8 +157,20 @@ const WeeklyDataPage: React.FC = () => {
   };
 
   const handleSubmitSuccess = () => {
+    console.log('Submit success, fetching new data'); // Debug log
     fetchWeeklyData();
     setIsModalOpen(false);
+  };
+
+  const getStatusColor = (status: Status) => {
+    switch (status) {
+      case 'edited':
+        return 'bg-amber-100 text-amber-800';
+      case 'confirmed':
+        return 'bg-green-100 text-green-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
   };
 
   return (
@@ -205,81 +214,59 @@ const WeeklyDataPage: React.FC = () => {
           {weeklyData && (
             <Card className="bg-white border border-gray-200 shadow-sm relative">
               <div className="p-6 space-y-8">
-                {/* Title and Buttons */}
+                {/* Status Marker and Buttons */}
                 <div className="flex justify-between items-center">
-                  {!weeklyData.isVerified && (
-                    <div className="flex space-x-2 ml-auto">
-                      <button
-                        onClick={handleEdit}
-                        className="p-2 text-blue-700 hover:text-blue-800 transition-colors"
-                        title="Edit Weekly Data"
-                      >
-                        <FaRegEdit size={20} />
-                      </button>
-                      <button
-                        onClick={handleConfirm}
-                        className="p-2 text-green-700 hover:text-green-900 transition-colors"
-                        title="Confirm Weekly Data"
-                      >
-                        <FaCheck size={20} />
-                      </button>
-                    </div>
-                  )}
-                </div>
-                {/* First Horizontal Block */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* General Information */}
-                  <div className="bg-gray-50 p-6 rounded-lg">
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">General Information</h3>
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <p className="text-sm text-gray-600"><strong>Total Visitors:</strong> {weeklyData.amountOfPeople || 0}</p>
-                        <p className="text-sm text-gray-600"><strong>New Clients:</strong> {weeklyData.newClients || 0}</p>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <p className="text-sm text-gray-600"><strong>Male:</strong> {weeklyData.male || 0}</p>
-                        <p className="text-sm text-gray-600"><strong>Female:</strong> {weeklyData.female || 0}</p>
-                      </div>
-                    </div>
+                  <div className="flex-1">
+                    <span
+                      className={`inline-block px-4 py-1 rounded-full text-sm font-medium pl-4 ${getStatusColor(weeklyData.status)}`}
+                    >
+                      Status: {weeklyData.status.charAt(0).toUpperCase() + weeklyData.status.slice(1)}
+                    </span>
                   </div>
-
-                  {/* Demographics & Timing */}
-                  <div className="bg-gray-50 p-6 rounded-lg">
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">Demographics & Timing</h3>
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <p className="text-sm text-gray-600"><strong>English Speaking:</strong> {weeklyData.englishSpeaking || 0}</p>
-                        <p className="text-sm text-gray-600"><strong>Russian Speaking:</strong> {weeklyData.russianSpeaking || 0}</p>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <p className="text-sm text-gray-600"><strong>Off-Peak:</strong> {weeklyData.offPeakClients || 0}</p>
-                        <p className="text-sm text-gray-600"><strong>Peak-Time:</strong> {weeklyData.peakTimeClients || 0}</p>
-                      </div>
-                    </div>
+                  <div className="flex space-x-2 ml-4">
+                    {weeklyData && (
+                      <>
+                        <button
+                          onClick={handleEdit}
+                          className="p-2 text-blue-700 hover:text-blue-800 transition-colors"
+                          title="Edit Weekly Data"
+                        >
+                          <FaRegEdit size={20} />
+                        </button>
+                        <button
+                          onClick={handleConfirm}
+                          className={`p-2 transition-colors ${
+                            weeklyData.id && weeklyData.status === 'edited'
+                              ? 'text-green-700 hover:text-green-900'
+                              : 'text-gray-400 cursor-not-allowed'
+                          }`}
+                          title="Confirm Weekly Data"
+                          disabled={!weeklyData.id || weeklyData.status !== 'edited'}
+                        >
+                          <FaCheck size={20} />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
 
-                {/* Second Horizontal Block */}
+                {/* Bonuses */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Sales Information */}
                   <div className="bg-gray-50 p-6 rounded-lg">
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">Sales Information</h3>
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">Bonuses</h3>
                     <div className="grid grid-cols-2 gap-4">
-                      <p className="text-sm text-gray-600"><strong>Vouchers Sold:</strong> {weeklyData.soldVouchersAmount || 0}</p>
-                      <p className="text-sm text-gray-600"><strong>Vouchers Total (£):</strong> {weeklyData.soldVouchersTotal || 0}</p>
-                      <p className="text-sm text-gray-600"><strong>Memberships Sold:</strong> {weeklyData.soldMembershipsAmount || 0}</p>
-                      <p className="text-sm text-gray-600"><strong>Memberships Total (£):</strong> {weeklyData.soldMembershipsTotal || 0}</p>
+                      <p className="text-sm text-gray-600"><strong>Staff Bonus (£):</strong> {weeklyData.staffBonus || 0}</p>
+                      <p className="text-sm text-gray-600"><strong>On Desk Bonus (£):</strong> {weeklyData.onDeskBonus || 0}</p>
+                      <p className="text-sm text-gray-600"><strong>Voucher Sales Bonus (£):</strong> {weeklyData.voucherSalesBonus || 0}</p>
+                      <p className="text-sm text-gray-600"><strong>Private Booking Bonus (£):</strong> {weeklyData.privateBookingBonus || 0}</p>
                     </div>
                   </div>
 
-                  {/* Yotta Transactions */}
                   <div className="bg-gray-50 p-6 rounded-lg">
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">Yotta Transactions</h3>
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">Pre-Booked for Next Week</h3>
                     <div className="grid grid-cols-2 gap-4">
-                      <p className="text-sm text-gray-600"><strong>Deposits:</strong> {weeklyData.yottaDepositsAmount || 0}</p>
-                      <p className="text-sm text-gray-600"><strong>Deposits Total (£):</strong> {weeklyData.yottaDepositsTotal || 0}</p>
-                      <p className="text-sm text-gray-600"><strong>Links:</strong> {weeklyData.yottaLinksAmount || 0}</p>
-                      <p className="text-sm text-gray-600"><strong>Links Total (£):</strong> {weeklyData.yottaLinksTotal || 0}</p>
+                      <p className="text-sm text-gray-600"><strong>Pre-Booked Value (£):</strong> {weeklyData.preBookedValueNextWeek || 0}</p>
+                      <p className="text-sm text-gray-600"><strong>Pre-Booked People:</strong> {weeklyData.preBookedPeopleNextWeek || 0}</p>
                     </div>
                   </div>
                 </div>
@@ -290,7 +277,7 @@ const WeeklyDataPage: React.FC = () => {
       </div>
 
       {weeklyData && (
-        <SurveyModal
+        <WeeklyDataSurveyModal
           isOpen={isModalOpen}
           onClose={() => {
             setIsModalOpen(false);
