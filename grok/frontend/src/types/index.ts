@@ -1,4 +1,5 @@
 export type UserRole = 'admin' | 'head' | 'boss';
+export type Status = 'edited' | 'confirmed';
 
 export interface User {
   username: string;
@@ -12,11 +13,11 @@ export interface AuthState {
 }
 
 export interface ClientInfo {
-  id?: number;
+  id?: number | null;
   amountOfPeople: number;
   male: number;
   female: number;
-  otherGender: number;
+  otherGender?: number;
   englishSpeaking: number;
   russianSpeaking: number;
   offPeakClients: number;
@@ -30,7 +31,14 @@ export interface ClientInfo {
   yottaDepositsTotal: number;
   yottaLinksAmount: number;
   yottaLinksTotal: number;
+  staffBonus: number;
+  onDeskBonus: number;
+  voucherSalesBonus: number;
+  privateBookingBonus: number;
+  preBookedValueNextWeek: number;
+  preBookedPeopleNextWeek: number;
   date: string;
   createdBy: string;
   isVerified: boolean;
+  status: Status;
 }
