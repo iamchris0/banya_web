@@ -204,6 +204,171 @@ app.get('/api/clients', authenticateToken, (req, res) => {
   res.json({ clients: filteredClients });
 });
 
+// In-memory storage for weekly data
+let weeklyData = [];
+
+// Submit or update weekly data
+app.post('/api/weekly-data', authenticateToken, restrictToRoles(['boss']), (req, res) => {
+  const {
+    amountOfPeople,
+    male,
+    female,
+    otherGender,
+    englishSpeaking,
+    russianSpeaking,
+    offPeakClients,
+    peakTimeClients,
+    newClients,
+    soldVouchersAmount,
+    soldVouchersTotal,
+    soldMembershipsAmount,
+    soldMembershipsTotal,
+    yottaDepositsAmount,
+    yottaDepositsTotal,
+    yottaLinksAmount,
+    yottaLinksTotal,
+    date,
+  } = req.body;
+
+  if (!amountOfPeople || !date) {
+    return res.status(400).json({ message: 'Missing required fields: Amount Of People or Date' });
+  }
+
+  // Find existing data for the week
+  const weekStart = new Date(date);
+  const dayOfWeek = weekStart.getDay();
+  const diff = weekStart.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+  weekStart.setDate(diff);
+  const weekStartStr = weekStart.toISOString().split('T')[0];
+
+  const existingDataIndex = weeklyData.findIndex(item => item.date === weekStartStr);
+
+  const data = {
+    id: existingDataIndex === -1 ? weeklyData.length + 1 : weeklyData[existingDataIndex].id,
+    amountOfPeople: Number(amountOfPeople) || 0,
+    male: Number(male) || 0,
+    female: Number(female) || 0,
+    otherGender: Number(otherGender) || 0,
+    englishSpeaking: Number(englishSpeaking) || 0,
+    russianSpeaking: Number(russianSpeaking) || 0,
+    offPeakClients: Number(offPeakClients) || 0,
+    peakTimeClients: Number(peakTimeClients) || 0,
+    newClients: Number(newClients) || 0,
+    soldVouchersAmount: Number(soldVouchersAmount) || 0,
+    soldVouchersTotal: Number(soldVouchersTotal) || 0,
+    soldMembershipsAmount: Number(soldMembershipsAmount) || 0,
+    soldMembershipsTotal: Number(soldMembershipsTotal) || 0,
+    yottaDepositsAmount: Number(yottaDepositsAmount) || 0,
+    yottaDepositsTotal: Number(yottaDepositsTotal) || 0,
+    yottaLinksAmount: Number(yottaLinksAmount) || 0,
+    yottaLinksTotal: Number(yottaLinksTotal) || 0,
+    date: weekStartStr,
+    isVerified: false,
+  };
+
+  if (existingDataIndex === -1) {
+    weeklyData.push(data);
+  } else {
+    weeklyData[existingDataIndex] = data;
+  }
+  res.json({ message: 'Weekly data submitted', weeklyData: data });
+});
+
+// Update weekly data
+app.put('/api/weekly-data/:id', authenticateToken, restrictToRoles(['boss']), (req, res) => {
+  const { id } = req.params;
+  const {
+    amountOfPeople,
+    male,
+    female,
+    otherGender,
+    englishSpeaking,
+    russianSpeaking,
+    offPeakClients,
+    peakTimeClients,
+    newClients,
+    soldVouchersAmount,
+    soldVouchersTotal,
+    soldMembershipsAmount,
+    soldMembershipsTotal,
+    yottaDepositsAmount,
+    yottaDepositsTotal,
+    yottaLinksAmount,
+    yottaLinksTotal,
+    date,
+  } = req.body;
+
+  const dataIndex = weeklyData.findIndex(item => item.id === Number(id));
+  if (dataIndex === -1) {
+    return res.status(404).json({ message: 'Weekly data not found' });
+  }
+
+  if (!amountOfPeople || !date) {
+    return res.status(400).json({ message: 'Missing required fields: Amount Of People or Date' });
+  }
+
+  const weekStart = new Date(date);
+  const dayOfWeek = weekStart.getDay();
+  const diff = weekStart.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+  weekStart.setDate(diff);
+  const weekStartStr = weekStart.toISOString().split('T')[0];
+
+  const updatedData = {
+    ...weeklyData[dataIndex],
+    amountOfPeople: Number(amountOfPeople) || 0,
+    male: Number(male) || 0,
+    female: Number(female) || 0,
+    otherGender: Number(otherGender) || 0,
+    englishSpeaking: Number(englishSpeaking) || 0,
+    russianSpeaking: Number(russianSpeaking) || 0,
+    offPeakClients: Number(offPeakClients) || 0,
+    peakTimeClients: Number(peakTimeClients) || 0,
+    newClients: Number(newClients) || 0,
+    soldVouchersAmount: Number(soldVouchersAmount) || 0,
+    soldVouchersTotal: Number(soldVouchersTotal) || 0,
+    soldMembershipsAmount: Number(soldMembershipsAmount) || 0,
+    soldMembershipsTotal: Number(soldMembershipsTotal) || 0,
+    yottaDepositsAmount: Number(yottaDepositsAmount) || 0,
+    yottaDepositsTotal: Number(yottaDepositsTotal) || 0,
+    yottaLinksAmount: Number(yottaLinksAmount) || 0,
+    yottaLinksTotal: Number(yottaLinksTotal) || 0,
+    date: weekStartStr,
+    isVerified: false, // Reset to false on update
+  };
+
+  weeklyData[dataIndex] = updatedData;
+  res.json({ message: 'Weekly data updated', weeklyData: updatedData });
+});
+
+// Verify weekly data
+app.patch('/api/weekly-data/:id/verify', authenticateToken, restrictToRoles(['boss']), (req, res) => {
+  const { id } = req.params;
+  const { isVerified } = req.body;
+
+  const dataIndex = weeklyData.findIndex(item => item.id === Number(id));
+  if (dataIndex === -1) {
+    return res.status(404).json({ message: 'Weekly data not found' });
+  }
+
+  if (typeof isVerified !== 'boolean') {
+    return res.status(400).json({ message: 'Invalid isVerified value' });
+  }
+
+  weeklyData[dataIndex].isVerified = isVerified;
+  res.json({ message: 'Weekly data verification status updated', weeklyData: weeklyData[dataIndex] });
+});
+
+// Get weekly data for a specific week
+app.get('/api/weekly-data', authenticateToken, restrictToRoles(['boss']), (req, res) => {
+  const { weekStart } = req.query;
+  if (!weekStart) {
+    return res.status(400).json({ message: 'Missing weekStart query parameter' });
+  }
+
+  const weekData = weeklyData.find(item => item.date === weekStart) || null;
+  res.json({ weeklyData });
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
