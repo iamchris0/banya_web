@@ -1,5 +1,5 @@
 export type UserRole = 'admin' | 'head' | 'boss';
-export type Status = 'edited' | 'confirmed';
+export type Status = 'edited' | 'Confirmed';
 
 export interface User {
   username: string;
