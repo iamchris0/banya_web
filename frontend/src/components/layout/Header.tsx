@@ -2,6 +2,7 @@ import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { LogOut } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import ActiveUsers from '../common/ActiveUsers';
 
 const Header: React.FC = () => {
   const { isAuthenticated, user, logout } = useAuth();
@@ -74,18 +75,21 @@ const Header: React.FC = () => {
             </Link>
           </nav>
 
-          <div className="flex items-center space-x-2">
-            <div className="text-sm">
-              <span className="block text-green-200">Logged in as</span>
-              <span className="font-medium">{user?.username} ({user?.role})</span>
+          <div className="flex items-center space-x-4">
+            <ActiveUsers />
+            <div className="flex items-center space-x-2">
+              <div className="text-sm">
+                <span className="block text-green-200">Logged in as</span>
+                <span className="font-medium">{user?.username} ({user?.role})</span>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="flex items-center space-x-1 text-green-200 hover:text-white py-1 px-2 rounded-md hover:bg-green-800 transition-colors"
+              >
+                <LogOut size={18} />
+                <span>Logout</span>
+              </button>
             </div>
-            <button
-              onClick={handleLogout}
-              className="flex items-center space-x-1 text-green-200 hover:text-white py-1 px-2 rounded-md hover:bg-green-800 transition-colors"
-            >
-              <LogOut size={18} />
-              <span>Logout</span>
-            </button>
           </div>
         </div>
       </div>
