@@ -2,6 +2,8 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import bodyParser from 'body-parser';
 import cors from 'cors';
+import { WebSocketServer } from 'ws';
+import http from 'http';
 
 const app = express();
 const PORT = 2345;
@@ -12,10 +14,16 @@ app.use(bodyParser.json());
 
 // Hardcoded admin user
 const users = [
-  { id: 1, username: 'admin', password: '123', role: 'admin' },
-  { id: 2, username: 'Ksenia Bobkova', password: '123', role: 'boss' },
-  { id: 3, username: 'misha', password: '123', role: 'head' },
+  { id: 1, username: 'reception', password: '123', role: 'admin' },
+  { id: 2, username: 'general operation', password: '123', role: 'head' },
+  { id: 3, username: 'elena', password: '123', role: 'boss' },
+  { id: 4, username: 'ksenia', password: '123', role: 'boss' },
 ];
+
+// Roles:
+// reception - daily data
+// reporting - verify + financial data
+// viewer - just to view
 
 // In-memory storage for clients
 let clients = [];
@@ -333,6 +341,30 @@ app.get('/api/weekly-data', authenticateToken, restrictToRoles(['boss']), (req, 
   res.json({ weeklyData: weekData });
 });
 
-app.listen(PORT, () => {
+const server = http.createServer(app);
+const wss = new WebSocketServer({ server });
+
+let activeUsers = 0;
+
+wss.on('connection', function connection(ws) {
+  activeUsers++;
+  // Broadcast to all clients
+  wss.clients.forEach(client => {
+    if (client.readyState === ws.OPEN) {
+      client.send(JSON.stringify({ activeUsers }));
+    }
+  });
+
+  ws.on('close', function close() {
+    activeUsers--;
+    wss.clients.forEach(client => {
+      if (client.readyState === ws.OPEN) {
+        client.send(JSON.stringify({ activeUsers }));
+      }
+    });
+  });
+});
+
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
