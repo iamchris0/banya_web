@@ -2,7 +2,6 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import bodyParser from 'body-parser';
 import cors from 'cors';
-import { WebSocketServer } from 'ws';
 import http from 'http';
 
 const app = express();
@@ -27,6 +26,9 @@ const users = [
 
 // In-memory storage for clients
 let clients = [];
+
+// Track users per page
+const usersByPage = new Map();
 
 // Middleware to verify JWT
 const authenticateToken = (req, res, next) => {
@@ -344,90 +346,40 @@ app.get('/api/weekly-data', authenticateToken, restrictToRoles(['boss']), (req, 
   res.json({ weeklyData: weekData });
 });
 
+// Get active users for a page
+app.get('/api/active-users', authenticateToken, (req, res) => {
+  const { page, username } = req.query;
+  
+  if (!page || !username) {
+    return res.status(400).json({ message: 'Missing required parameters' });
+  }
+
+  // Remove user from their previous page if they exist
+  for (const [pageName, users] of usersByPage.entries()) {
+    if (users.has(username)) {
+      users.delete(username);
+      // If no users left on the page, remove the page entry
+      if (users.size === 0) {
+        usersByPage.delete(pageName);
+      }
+    }
+  }
+
+  // Add user to their new page
+  if (!usersByPage.has(page)) {
+    usersByPage.set(page, new Set());
+  }
+  usersByPage.get(page).add(username);
+
+  // Return users for the current page
+  const pageUsers = usersByPage.get(page) || new Set();
+  res.json({
+    activeUsers: Array.from(pageUsers),
+    count: pageUsers.size
+  });
+});
+
 const server = http.createServer(app);
-const wss = new WebSocketServer({ server });
-
-// Track active users per page
-const activeUsersByPage = new Map();
-
-wss.on('connection', function connection(ws, req) {
-  
-  // Extract username and page from query parameters
-  const url = new URL(req.url, 'ws://localhost');
-  const username = url.searchParams.get('username');
-  const page = url.searchParams.get('page') || 'dashboard';
-  
-  
-  if (!username) {
-    ws.close();
-    return;
-  }
-
-  // Initialize page set if it doesn't exist
-  if (!activeUsersByPage.has(page)) {
-    activeUsersByPage.set(page, new Set());
-  }
-
-  activeUsersByPage.get(page).add(username);
-  
-  // Send initial state to the new connection
-  ws.send(JSON.stringify({ 
-    activeUsers: Array.from(activeUsersByPage.get(page)),
-    page: page 
-  }));
-  
-  // Broadcast to all clients on the same page
-  wss.clients.forEach(client => {
-    if (client.readyState === ws.OPEN) {
-      const clientUrl = new URL(client.url, 'ws://localhost');
-      const clientPage = clientUrl.searchParams.get('page') || 'dashboard';
-      
-      if (clientPage === page) {
-        client.send(JSON.stringify({ 
-          activeUsers: Array.from(activeUsersByPage.get(page)),
-          page: page 
-        }));
-      }
-    }
-  });
-
-  ws.on('close', function close() {
-    if (activeUsersByPage.has(page)) {
-      activeUsersByPage.get(page).delete(username);
-      
-      // Broadcast updated list to all clients on the same page
-      wss.clients.forEach(client => {
-        if (client.readyState === ws.OPEN) {
-          const clientUrl = new URL(client.url, 'ws://localhost');
-          const clientPage = clientUrl.searchParams.get('page') || 'dashboard';
-          
-          if (clientPage === page) {
-            client.send(JSON.stringify({ 
-              activeUsers: Array.from(activeUsersByPage.get(page)),
-              page: page 
-            }));
-          }
-        }
-      });
-
-      // Clean up empty page sets
-      if (activeUsersByPage.get(page).size === 0) {
-        activeUsersByPage.delete(page);
-      }
-    }
-  });
-
-  ws.on('error', function error(err) {
-    console.error('WebSocket error:', err);
-  });
-});
-
-// Add error handling for the WebSocket server
-wss.on('error', function error(err) {
-  console.error('WebSocket server error:', err);
-});
-
 server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log('WebSocket server initialized');
+  console.log(`Server is running on port ${PORT}`);
 });
