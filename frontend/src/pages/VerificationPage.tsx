@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { ClientInfo } from '../types';
 import Card from '../components/common/Card';
 import { FaRegEdit, FaCheck, FaArrowLeft, FaArrowRight } from 'react-icons/fa';
 import SurveyModal from './AddInformationPage';
-import ActiveUsers from '../components/common/ActiveUsers';
 
 const VerificationPage: React.FC = () => {
   const { token } = useAuth();
@@ -15,6 +14,7 @@ const VerificationPage: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [direction, setDirection] = useState<'left' | 'right' | null>(null);
+  const pollingIntervalRef = useRef<number>();
 
   const fetchUnverifiedClients = async () => {
     if (!token) {
@@ -23,7 +23,7 @@ const VerificationPage: React.FC = () => {
     }
     setError('');
     try {
-      const response = await fetch('http://localhost:2345/api/clients?verified=false', {
+      const response = await fetch('http://localhost:2345/api/clients', {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -35,7 +35,14 @@ const VerificationPage: React.FC = () => {
         throw new Error(errorData.message || `Failed to fetch clients: ${response.status}`);
       }
       const data = await response.json();
-      setClients(data.clients || []);
+      const newClients = data.clients || [];
+      
+      // Sort clients by date in descending order (newest first)
+      const sortedClients = newClients.sort((a: ClientInfo, b: ClientInfo) => {
+        return new Date(b.date).getTime() - new Date(a.date).getTime();
+      });
+      
+      setClients(sortedClients);
     } catch (err) {
       console.error('Fetch clients error:', err);
       setError(err instanceof Error ? err.message : 'Error fetching client data');
@@ -44,7 +51,18 @@ const VerificationPage: React.FC = () => {
 
   useEffect(() => {
     if (token) {
+      // Initial fetch
       fetchUnverifiedClients();
+      
+      // Set up polling with a shorter interval
+      pollingIntervalRef.current = setInterval(fetchUnverifiedClients, 2000); // Poll every 2 seconds
+      
+      // Cleanup function
+      return () => {
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+        }
+      };
     }
   }, [token]);
 
@@ -129,9 +147,19 @@ const VerificationPage: React.FC = () => {
 
   const filteredClients = filterClientsByDate(clients, selectedDate);
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'Confirmed':
+        return 'bg-green-100 text-green-800';
+      case 'edited':
+        return 'bg-yellow-100 text-yellow-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
   return (
     <div className="flex flex-col h-full bg-gray-50 text-gray-800 p-6">
-      <ActiveUsers />
       <div className="flex-grow w-full max-w-7xl mx-auto">
         {/* Date Navigation */}
         <div className="mb-6 flex items-center justify-center space-x-4">
@@ -178,9 +206,14 @@ const VerificationPage: React.FC = () => {
                   <div className="p-6 space-y-8">
                     {/* Title and Buttons */}
                     <div className="flex justify-between items-center">
-                      <span className="text-lg font-medium text-gray-900">
-                        Created by: {client.createdBy}
-                      </span>
+                      <div className="flex items-center space-x-4">
+                        <span className="bg-gray-100 px-3 py-1 rounded-full text-sm font-medium text-gray-900">
+                          Created by: {client.createdBy}
+                        </span>
+                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(client.status)}`}>
+                          {client.status}
+                        </span>
+                      </div>
                       <div className="flex space-x-2">
                         <button
                           onClick={() => handleEdit(client)}
@@ -189,13 +222,15 @@ const VerificationPage: React.FC = () => {
                         >
                           <FaRegEdit size={20} />
                         </button>
-                        <button
-                          onClick={() => handleConfirm(client.id!)}
-                          className="p-2 text-green-700 hover:text-green-900 transition-colors"
-                          title="Confirm Survey"
-                        >
-                          <FaCheck size={20} />
-                        </button>
+                        {!client.isVerified && (
+                          <button
+                            onClick={() => handleConfirm(client.id!)}
+                            className="p-2 text-green-700 hover:text-green-900 transition-colors"
+                            title="Confirm Survey"
+                          >
+                            <FaCheck size={20} />
+                          </button>
+                        )}
                       </div>
                     </div>
                     {/* First Horizontal Block */}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import Card from '../components/common/Card';
 import SurveyModal from './AddInformationPage';
@@ -14,6 +14,7 @@ const DailyDataPage: React.FC = () => {
   const [selectedClient, setSelectedClient] = useState<ClientInfo | undefined>(undefined);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [direction, setDirection] = useState<'left' | 'right' | null>(null);
+  const pollingIntervalRef = useRef<number>();
 
   const fetchClients = async () => {
     if (!token) {
@@ -34,7 +35,14 @@ const DailyDataPage: React.FC = () => {
         throw new Error(errorData.message || `Failed to fetch clients: ${response.status}`);
       }
       const data = await response.json();
-      setClients(data.clients || []);
+      const newClients = data.clients || [];
+      
+      // Sort clients by date in descending order (newest first)
+      const sortedClients = newClients.sort((a: ClientInfo, b: ClientInfo) => {
+        return new Date(b.date).getTime() - new Date(a.date).getTime();
+      });
+      
+      setClients(sortedClients);
     } catch (err) {
       console.error('Fetch clients error:', err);
       setError(err instanceof Error ? err.message : 'Error fetching client data');
@@ -43,7 +51,18 @@ const DailyDataPage: React.FC = () => {
 
   useEffect(() => {
     if (token) {
+      // Initial fetch
       fetchClients();
+      
+      // Set up polling with a shorter interval
+      pollingIntervalRef.current = setInterval(fetchClients, 2000); // Poll every 2 seconds
+      
+      // Cleanup function
+      return () => {
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+        }
+      };
     }
   }, [token]);
 
@@ -179,7 +198,7 @@ const DailyDataPage: React.FC = () => {
                         : 'bg-amber-100 text-amber-800'
                     }`}
                   >
-                    Status: {latestClient.isVerified ? 'Verified' : 'Pending'}
+                    Status: {latestClient.isVerified ? 'Confirmed' : 'Pending'}
                   </span>
                   {user?.role === 'admin' && (
                     <button

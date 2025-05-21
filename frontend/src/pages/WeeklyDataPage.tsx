@@ -140,7 +140,7 @@ const WeeklyDataPage: React.FC = () => {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ isVerified: true, status: 'confirmed' as Status }),
+        body: JSON.stringify({ isVerified: true, status: 'Confirmed' as Status }),
       });
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -162,7 +162,7 @@ const WeeklyDataPage: React.FC = () => {
     switch (status) {
       case 'edited':
         return 'bg-amber-100 text-amber-800';
-      case 'confirmed':
+      case 'Confirmed':
         return 'bg-green-100 text-green-800';
       default:
         return 'bg-gray-100 text-gray-800';
