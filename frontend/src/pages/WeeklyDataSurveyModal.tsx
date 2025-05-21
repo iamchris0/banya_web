@@ -89,7 +89,7 @@ const WeeklyDataSurveyModal: React.FC<WeeklyDataSurveyModalProps> = ({ isOpen, o
         date: formData.date,
         createdBy: user.username,
       };
-      console.log('Submitting weekly data:', { method, url, payload }); // Debug log
+      
       const response = await fetch(url, {
         method,
         headers: {
@@ -103,9 +103,6 @@ const WeeklyDataSurveyModal: React.FC<WeeklyDataSurveyModalProps> = ({ isOpen, o
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || `Failed to ${initialData?.id ? 'update' : 'submit'} weekly data: ${response.status}`);
       }
-
-      const responseData = await response.json();
-      console.log('Submission response:', responseData); // Debug log
 
       setIsSubmitting(false);
       setShowSuccess(true);

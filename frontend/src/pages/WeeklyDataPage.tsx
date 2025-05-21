@@ -37,7 +37,6 @@ const WeeklyDataPage: React.FC = () => {
     setError('');
     try {
       const weekStart = selectedWeekStart.toISOString().split('T')[0];
-      console.log('Fetching weekly data for weekStart:', weekStart); // Debug log
       const response = await fetch(`http://localhost:2345/api/weekly-data?weekStart=${weekStart}`, {
         method: 'GET',
         headers: {
@@ -50,7 +49,6 @@ const WeeklyDataPage: React.FC = () => {
         throw new Error(errorData.message || `Failed to fetch weekly data: ${response.status}`);
       }
       const data = await response.json();
-      console.log('Fetched weekly data:', data); // Debug log
       setWeeklyData(
         data.weeklyData || {
           id: null,
@@ -135,7 +133,6 @@ const WeeklyDataPage: React.FC = () => {
       setError('No data ID available. Please submit data first.');
       return;
     }
-    console.log('Confirming data:', { token, id: weeklyData.id }); // Debug log
     try {
       const response = await fetch(`http://localhost:2345/api/weekly-data/${weeklyData.id}/verify`, {
         method: 'PATCH',
@@ -157,7 +154,6 @@ const WeeklyDataPage: React.FC = () => {
   };
 
   const handleSubmitSuccess = () => {
-    console.log('Submit success, fetching new data'); // Debug log
     fetchWeeklyData();
     setIsModalOpen(false);
   };

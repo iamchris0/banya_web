@@ -4,6 +4,7 @@ import { ClientInfo } from '../types';
 import Card from '../components/common/Card';
 import { FaRegEdit, FaCheck, FaArrowLeft, FaArrowRight } from 'react-icons/fa';
 import SurveyModal from './AddInformationPage';
+import ActiveUsers from '../components/common/ActiveUsers';
 
 const VerificationPage: React.FC = () => {
   const { token } = useAuth();
@@ -130,6 +131,7 @@ const VerificationPage: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full bg-gray-50 text-gray-800 p-6">
+      <ActiveUsers />
       <div className="flex-grow w-full max-w-7xl mx-auto">
         {/* Date Navigation */}
         <div className="mb-6 flex items-center justify-center space-x-4">

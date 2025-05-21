@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Card from '../components/common/Card';
 import {
   Chart as ChartJS,
@@ -28,6 +28,7 @@ ChartJS.register(
 );
 
 const DashboardPage: React.FC = () => {
+
   // Line chart data
   const lineData = {
     labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
