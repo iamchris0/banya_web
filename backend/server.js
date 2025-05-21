@@ -113,6 +113,7 @@ app.post('/api/clients', authenticateToken, restrictToRoles(['admin']), (req, re
     date,
     createdBy: req.user.username,
     isVerified: false,
+    status: 'edited'
   };
 
   clients.push(client);
@@ -174,6 +175,7 @@ app.put('/api/clients/:id', authenticateToken, restrictToRoles(['admin', 'head']
     yottaLinksTotal: Number(yottaLinksTotal) || 0,
     date,
     isVerified: req.user.role === 'admin' && wasVerified ? false : clients[clientIndex].isVerified,
+    status: req.user.role === 'admin' && wasVerified ? 'edited' : clients[clientIndex].status
   };
 
   clients[clientIndex] = updatedClient;
@@ -195,6 +197,7 @@ app.patch('/api/clients/:id/verify', authenticateToken, restrictToRoles(['head']
   }
 
   clients[clientIndex].isVerified = isVerified;
+  clients[clientIndex].status = isVerified ? 'Confirmed' : 'edited';
   res.json({ message: 'Invoice verification status updated', client: clients[clientIndex] });
 });
 
@@ -252,7 +255,7 @@ app.post('/api/weekly-data', authenticateToken, restrictToRoles(['boss']), (req,
     date: weekStartStr,
     createdBy: createdBy || req.user.username,
     isVerified: false,
-    status: existingDataIndex === -1 ? 'edited' : 'confirmed',
+    status: existingDataIndex === -1 ? 'edited' : 'Confirmed',
   };
 
   if (existingDataIndex === -1) {
@@ -326,7 +329,7 @@ app.patch('/api/weekly-data/:id/verify', authenticateToken, restrictToRoles(['bo
   }
 
   weeklyData[dataIndex].isVerified = isVerified;
-  weeklyData[dataIndex].status = status || 'confirmed';
+  weeklyData[dataIndex].status = status || 'Confirmed';
   res.json({ message: 'Weekly data verification status updated', weeklyData: weeklyData[dataIndex] });
 });
 
