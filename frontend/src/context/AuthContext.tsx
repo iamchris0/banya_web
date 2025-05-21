@@ -48,7 +48,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           isAuthenticated: true,
         });
         setToken(storedToken);
-      } catch (error) {
+      } catch {
         // If token is invalid, clear it
         localStorage.removeItem('authToken');
         setToken(null);

@@ -9,9 +9,11 @@ import {
   Tooltip,
   Legend,
   ArcElement,
+  TooltipItem,
 } from 'chart.js';
 import { Line, Pie } from 'react-chartjs-2';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
+import type { Context } from 'chartjs-plugin-datalabels';
 
 // Register ChartJS components
 ChartJS.register(
@@ -187,9 +189,9 @@ const DashboardPage: React.FC = () => {
         padding: 12,
         boxPadding: 6,
         callbacks: {
-          label: function(context: any) {
+          label: function(context: TooltipItem<'pie'>) {
             const label = context.label || '';
-            const value = context.raw || 0;
+            const value = context.raw as number || 0;
             const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0);
             const percentage = Math.round((value / total) * 100);
             return `${label}: ${value} (${percentage}%)`;
@@ -204,8 +206,8 @@ const DashboardPage: React.FC = () => {
         },
         align: 'end' as const,
         anchor: 'end' as const,
-        formatter: (value: number, context: any) => {
-          const total = context.chart.data.datasets[0].data.reduce((a: number, b: number) => a + b, 0);
+        formatter: (value: number, context: Context) => {
+          const total = (context.dataset.data as number[]).reduce((a: number, b: number) => a + (b || 0), 0);
           const percentage = ((value / total) * 100).toFixed(0);
           return `${value} (${percentage}%)`;
         },

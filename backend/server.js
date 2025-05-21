@@ -8,7 +8,7 @@ const app = express();
 const PORT = 2345;
 const SECRET_KEY = 'your_secret_key'; // Use a secure key in production
 
-app.use(cors({ origin: 'http://localhost:5173' }));
+app.use(cors({ origin: 'http://localhost:4173' }));
 app.use(bodyParser.json());
 
 // Hardcoded admin user

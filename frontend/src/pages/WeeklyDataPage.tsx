@@ -8,18 +8,17 @@ import { Navigate } from 'react-router-dom';
 
 const WeeklyDataPage: React.FC = () => {
   const { token, user } = useAuth();
+  const [selectedWeekStart, setSelectedWeekStart] = useState<Date>(() => {
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+    return new Date(today.setDate(diff));
+  });
   const [weeklyData, setWeeklyData] = useState<ClientInfo | null>(null);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<string>('');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedWeekStart, setSelectedWeekStart] = useState(new Date());
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [direction, setDirection] = useState<'left' | 'right' | null>(null);
-
-
-  // Restrict access to "boss" role
-  if (user?.role !== 'boss') {
-    return <Navigate to="/dashboard" replace />;
-  }
 
   // Set selectedWeekStart to the start of the current week (Monday)
   useEffect(() => {
@@ -75,6 +74,10 @@ const WeeklyDataPage: React.FC = () => {
       fetchWeeklyData();
     }
   }, [token, selectedWeekStart]);
+
+  if (user?.role !== 'boss') {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   const formatWeek = (date: Date) => {
     const start = new Date(date);
