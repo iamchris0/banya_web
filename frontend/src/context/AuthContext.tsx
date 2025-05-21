@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, ReactNode } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { jwtDecode } from 'jwt-decode';
 import { AuthState, UserRole } from '../types';
@@ -31,8 +31,30 @@ interface JwtPayload {
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [authState, setAuthState] = useState<AuthState>(initialState);
-  const [token, setToken] = useState<string | null>(null);
+  const [token, setToken] = useState<string | null>(() => {
+    // Initialize token from localStorage
+    return localStorage.getItem('authToken');
+  });
   const navigate = useNavigate();
+
+  // Restore auth state from token on initial load
+  useEffect(() => {
+    const storedToken = localStorage.getItem('authToken');
+    if (storedToken) {
+      try {
+        const decoded: JwtPayload = jwtDecode(storedToken);
+        setAuthState({
+          user: { username: decoded.username, role: decoded.role },
+          isAuthenticated: true,
+        });
+        setToken(storedToken);
+      } catch (error) {
+        // If token is invalid, clear it
+        localStorage.removeItem('authToken');
+        setToken(null);
+      }
+    }
+  }, []);
 
   const login = async (username: string, password: string): Promise<{ success: boolean; role?: UserRole }> => {
     try {
@@ -49,6 +71,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           isAuthenticated: true,
         });
         setToken(data.token);
+        // Store token in localStorage
+        localStorage.setItem('authToken', data.token);
         return { success: true, role: decoded.role };
       } else {
         throw new Error(data.message || 'Invalid credentials');
@@ -61,6 +85,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const logout = () => {
     setAuthState(initialState);
     setToken(null);
+    // Remove token from localStorage
+    localStorage.removeItem('authToken');
     navigate('/login');
   };
 
