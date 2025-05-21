@@ -344,27 +344,87 @@ app.get('/api/weekly-data', authenticateToken, restrictToRoles(['boss']), (req, 
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
-let activeUsers = 0;
+// Track active users per page
+const activeUsersByPage = new Map();
 
-wss.on('connection', function connection(ws) {
-  activeUsers++;
-  // Broadcast to all clients
+wss.on('connection', function connection(ws, req) {
+  
+  // Extract username and page from query parameters
+  const url = new URL(req.url, 'ws://localhost');
+  const username = url.searchParams.get('username');
+  const page = url.searchParams.get('page') || 'dashboard';
+  
+  
+  if (!username) {
+    ws.close();
+    return;
+  }
+
+  // Initialize page set if it doesn't exist
+  if (!activeUsersByPage.has(page)) {
+    activeUsersByPage.set(page, new Set());
+  }
+
+  activeUsersByPage.get(page).add(username);
+  
+  // Send initial state to the new connection
+  ws.send(JSON.stringify({ 
+    activeUsers: Array.from(activeUsersByPage.get(page)),
+    page: page 
+  }));
+  
+  // Broadcast to all clients on the same page
   wss.clients.forEach(client => {
     if (client.readyState === ws.OPEN) {
-      client.send(JSON.stringify({ activeUsers }));
+      const clientUrl = new URL(client.url, 'ws://localhost');
+      const clientPage = clientUrl.searchParams.get('page') || 'dashboard';
+      
+      if (clientPage === page) {
+        client.send(JSON.stringify({ 
+          activeUsers: Array.from(activeUsersByPage.get(page)),
+          page: page 
+        }));
+      }
     }
   });
 
   ws.on('close', function close() {
-    activeUsers--;
-    wss.clients.forEach(client => {
-      if (client.readyState === ws.OPEN) {
-        client.send(JSON.stringify({ activeUsers }));
+    if (activeUsersByPage.has(page)) {
+      activeUsersByPage.get(page).delete(username);
+      
+      // Broadcast updated list to all clients on the same page
+      wss.clients.forEach(client => {
+        if (client.readyState === ws.OPEN) {
+          const clientUrl = new URL(client.url, 'ws://localhost');
+          const clientPage = clientUrl.searchParams.get('page') || 'dashboard';
+          
+          if (clientPage === page) {
+            client.send(JSON.stringify({ 
+              activeUsers: Array.from(activeUsersByPage.get(page)),
+              page: page 
+            }));
+          }
+        }
+      });
+
+      // Clean up empty page sets
+      if (activeUsersByPage.get(page).size === 0) {
+        activeUsersByPage.delete(page);
       }
-    });
+    }
   });
+
+  ws.on('error', function error(err) {
+    console.error('WebSocket error:', err);
+  });
+});
+
+// Add error handling for the WebSocket server
+wss.on('error', function error(err) {
+  console.error('WebSocket server error:', err);
 });
 
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log('WebSocket server initialized');
 });
