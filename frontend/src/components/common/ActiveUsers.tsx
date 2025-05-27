@@ -96,7 +96,7 @@ const ActiveUsers: React.FC = () => {
             <div className="flex items-center space-x-2">
               <FaUsers className="text-gray-600" size={14} />
               <span className="text-sm font-medium text-gray-900">
-                Users on {getCurrentPage()}
+                Active users
               </span>
             </div>
           </div>

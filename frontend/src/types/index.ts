@@ -37,6 +37,24 @@ export interface ClientInfo {
   privateBookingBonus: number;
   preBookedValueNextWeek: number;
   preBookedPeopleNextWeek: number;
+  dailyPreBooked?: {
+    monday: number;
+    tuesday: number;
+    wednesday: number;
+    thursday: number;
+    friday: number;
+    saturday: number;
+    sunday: number;
+  };
+  dailyPreBookedPeople?: {
+    monday: number;
+    tuesday: number;
+    wednesday: number;
+    thursday: number;
+    friday: number;
+    saturday: number;
+    sunday: number;
+  };
   date: string;
   createdBy: string;
   isVerified: boolean;

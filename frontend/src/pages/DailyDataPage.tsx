@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import Card from '../components/common/Card';
 import SurveyModal from './AddInformationPage';
-import { ClientInfo } from '../types';
-import { FaArrowLeft, FaArrowRight, FaRegEdit } from 'react-icons/fa';
+import { ClientInfo, Status } from '../types';
+import { FaArrowLeft, FaArrowRight, FaRegEdit, FaCheck } from 'react-icons/fa';
 
 const DailyDataPage: React.FC = () => {
   const { token, user } = useAuth();
@@ -67,10 +67,7 @@ const DailyDataPage: React.FC = () => {
   }, [token]);
 
   const formatDate = (date: Date) => {
-    const day = date.getDate().toString().padStart(2, '0');
-    const month = date.toLocaleString('default', { month: 'long' });
-    const year = date.getFullYear();
-    return `${day} ${month} ${year}`;
+    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
   };
 
   const filterClientsByDate = (clients: ClientInfo[], date: Date) => {
@@ -89,24 +86,40 @@ const DailyDataPage: React.FC = () => {
       setSelectedDate(newDate);
       setIsTransitioning(false);
       setDirection(null);
-    }, 200); // Match transition duration
+    }, 200);
   };
 
   const handleNextDay = () => {
+    const nextDate = new Date(selectedDate);
+    nextDate.setDate(nextDate.getDate() + 1);
+    
+    // Check if the next date is more than 1 day ahead of current date
+    const today = new Date();
+    const maxAllowedDate = new Date(today);
+    maxAllowedDate.setDate(maxAllowedDate.getDate() + 1);
+    
+    if (nextDate > maxAllowedDate) {
+      return; // Don't allow navigation beyond tomorrow
+    }
+    
     setIsTransitioning(true);
     setDirection('right');
-    const newDate = new Date(selectedDate);
-    newDate.setDate(newDate.getDate() + 1);
     setTimeout(() => {
-      setSelectedDate(newDate);
+      setSelectedDate(nextDate);
       setIsTransitioning(false);
       setDirection(null);
-    }, 200); // Match transition duration
+    }, 200);
   };
 
-  const isToday = (date: Date) => {
+  const canNavigateToNextDay = (date: Date) => {
     const today = new Date();
-    return date.toDateString() === today.toDateString();
+    const maxAllowedDate = new Date(today);
+    maxAllowedDate.setDate(maxAllowedDate.getDate() + 1);
+    
+    const nextDate = new Date(date);
+    nextDate.setDate(nextDate.getDate() + 1);
+    
+    return nextDate <= maxAllowedDate;
   };
 
   const handleEdit = (client: ClientInfo) => {
@@ -114,10 +127,43 @@ const DailyDataPage: React.FC = () => {
     setIsModalOpen(true);
   };
 
+  const handleConfirm = async (client: ClientInfo) => {
+    if (!token) {
+      setError('No authentication token available');
+      return;
+    }
+    if (!client.id) {
+      setError('No data ID available. Please submit data first.');
+      return;
+    }
+    try {
+      const response = await fetch(`http://localhost:2345/api/clients/${client.id}/verify`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ isVerified: true, status: 'Confirmed' as Status }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Failed to verify client data: ${response.status}`);
+      }
+      fetchClients();
+    } catch (err) {
+      console.error('Verify client data error:', err);
+      setError(err instanceof Error ? err.message : 'Error verifying client data');
+    }
+  };
+
   const handleSubmitSuccess = () => {
     fetchClients();
     setIsModalOpen(false);
     setSelectedClient(undefined);
+  };
+
+  const getStatusColor = (isVerified: boolean) => {
+    return isVerified ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800';
   };
 
   const filteredClients = filterClientsByDate(clients, selectedDate);
@@ -127,28 +173,22 @@ const DailyDataPage: React.FC = () => {
   const latestClient = filteredClients[0];
 
   return (
-    <div className="flex flex-col h-full bg-gray-50 text-gray-800 p-6 relative">
-      <div className="flex-grow w-full max-w-7xl mx-auto flex flex-col">
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded relative mb-4" role="alert">
-            <span className="block sm:inline">{error}</span>
-          </div>
-        )}
-
+    <div className="flex flex-col h-full bg-gray-50 text-gray-800 p-6">
+      <div className="flex-grow w-full max-w-7xl mx-auto">
         {/* Date Navigation */}
         <div className="mb-6 flex items-center justify-center space-x-4">
           <button onClick={handlePrevDay} className="p-2 text-gray-800 hover:text-green-900">
             <FaArrowLeft size={20} />
           </button>
           <span className="text-xl font-medium">{formatDate(selectedDate)}</span>
-          {!isToday(selectedDate) && (
+          {canNavigateToNextDay(selectedDate) && (
             <button onClick={handleNextDay} className="p-2 text-gray-800 hover:text-green-900">
               <FaArrowRight size={20} />
             </button>
           )}
         </div>
 
-        {/* Statistics Cards and Survey Card with Transition */}
+        {/* Content with Transition */}
         <div
           className={`transition-all duration-300 ease-in-out ${
             isTransitioning
@@ -158,71 +198,86 @@ const DailyDataPage: React.FC = () => {
               : 'opacity-100 translate-x-0'
           }`}
         >
-          {/* Statistics Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-            <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200">
-              <div className="text-center">
-                <h3 className="text-xl font-medium text-blue-800 mb-2">Total People</h3>
-                <p className="text-3xl font-bold text-blue-900">{totalClients}</p>
-                <p className="text-sm text-blue-700 mt-1">Total visitors</p>
-              </div>
-            </Card>
-            <Card className="bg-gradient-to-br from-amber-50 to-amber-100 border border-amber-200">
-              <div className="text-center">
-                <h3 className="text-xl font-medium text-amber-800 mb-2">Pending</h3>
-                <p className="text-3xl font-bold text-amber-900">{pendingClients}</p>
-                <p className="text-sm text-amber-700 mt-1">Pending verification</p>
-              </div>
-            </Card>
-            <Card className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200">
-              <div className="text-center">
-                <h3 className="text-xl font-medium text-green-800 mb-2">Verified</h3>
-                <p className="text-3xl font-bold text-green-900">{verifiedClients}</p>
-                <p className="text-sm text-green-700 mt-1">Verified entries</p>
-              </div>
-            </Card>
-          </div>
+          {error && (
+            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
+              <p className="text-red-800">{error}</p>
+            </div>
+          )}
 
-          {/* Detailed Recent Survey Card */}
+          {/* Detailed Survey Card */}
           {latestClient && (
-            <Card
-              className="bg-white border border-gray-200 shadow-sm flex-grow overflow-auto relative"
-            >
+            <Card className="bg-white border border-gray-200 shadow-sm relative">
               <div className="p-6 space-y-8">
-                {/* Status Oval and Edit Button */}
+                {/* Status Marker and Buttons */}
                 <div className="flex justify-between items-center">
-                  <span
-                    className={`inline-block px-4 py-1 rounded-full text-sm font-medium pl-4 ${
-                      latestClient.isVerified
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-amber-100 text-amber-800'
-                    }`}
-                  >
-                    Status: {latestClient.isVerified ? 'Confirmed' : 'Pending'}
-                  </span>
-                  {user?.role === 'admin' && (
-                    <button
-                      onClick={() => handleEdit(latestClient)}
-                      className="p-2 text-blue-700 hover:text-blue-800 transition-colors"
-                      title="Edit Survey"
+                  <div className="flex-1">
+                    <span
+                      className={`inline-block px-4 py-1 rounded-full text-sm font-medium pl-4 ${getStatusColor(latestClient.isVerified)}`}
                     >
-                      <FaRegEdit size={20} />
-                    </button>
-                  )}
+                      Status: {latestClient.isVerified ? 'Confirmed' : 'Pending'}
+                    </span>
+                  </div>
+                  <div className="flex space-x-2 ml-4">
+                    {user?.role === 'admin' && (
+                      <>
+                        <button
+                          onClick={() => handleEdit(latestClient)}
+                          className="p-2 text-blue-700 hover:text-blue-800 transition-colors"
+                          title="Edit Survey"
+                        >
+                          <FaRegEdit size={20} />
+                        </button>
+                        <button
+                          onClick={() => handleConfirm(latestClient)}
+                          className={`p-2 transition-colors ${
+                            latestClient.id && !latestClient.isVerified
+                              ? 'text-green-700 hover:text-green-900'
+                              : 'text-gray-400 cursor-not-allowed'
+                          }`}
+                          title="Confirm Survey"
+                          disabled={!latestClient.id || latestClient.isVerified}
+                        >
+                          <FaCheck size={20} />
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
-                {/* First Horizontal Block */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                {/* Main Content Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                   {/* General Information */}
                   <div className="bg-gray-50 p-6 rounded-lg">
                     <h3 className="text-lg font-medium text-gray-900 mb-4">General Information</h3>
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <p className="text-sm text-gray-600"><strong>Total Visitors:</strong> {latestClient.amountOfPeople || 0}</p>
-                        <p className="text-sm text-gray-600"><strong>New Clients:</strong> {latestClient.newClients || 0}</p>
+                    <div className="space-y-6">
+                      <div className="bg-white p-4 rounded-md shadow-sm">
+                        <p className="text-sm font-medium text-gray-700 mb-2">Total Visitors</p>
+                        <p className="text-2xl font-semibold text-purple-700">{latestClient.amountOfPeople || 0}</p>
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <p className="text-sm text-gray-600"><strong>Male:</strong> {latestClient.male || 0}</p>
-                        <p className="text-sm text-gray-600"><strong>Female:</strong> {latestClient.female || 0}</p>
+                      
+                      <div>
+                        <h4 className="text-md font-medium text-gray-700 mb-3">Visitor Distribution</h4>
+                        <div className="bg-white rounded-md shadow-sm overflow-hidden">
+                          <div className="grid grid-cols-2 gap-px bg-gray-200">
+                            <div className="bg-white p-3">
+                              <p className="text-xs text-gray-500 mb-1">Total</p>
+                              <p className="text-lg font-semibold text-gray-900">{latestClient.amountOfPeople || 0}</p>
+                            </div>
+                            <div className="bg-white p-3">
+                              <p className="text-xs text-gray-500 mb-1">New Clients</p>
+                              <p className="text-lg font-semibold text-gray-900">{latestClient.newClients || 0}</p>
+                            </div>
+                            <div className="bg-white p-3">
+                              <p className="text-xs text-gray-500 mb-1">Male</p>
+                              <p className="text-lg font-semibold text-gray-900">{latestClient.male || 0}</p>
+                            </div>
+                            <div className="bg-white p-3">
+                              <p className="text-xs text-gray-500 mb-1">Female</p>
+                              <p className="text-lg font-semibold text-gray-900">{latestClient.female || 0}</p>
+                            </div>
+                            
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -230,50 +285,85 @@ const DailyDataPage: React.FC = () => {
                   {/* Demographics & Timing */}
                   <div className="bg-gray-50 p-6 rounded-lg">
                     <h3 className="text-lg font-medium text-gray-900 mb-4">Demographics & Timing</h3>
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <p className="text-sm text-gray-600"><strong>English Speaking:</strong> {latestClient.englishSpeaking || 0}</p>
-                        <p className="text-sm text-gray-600"><strong>Russian Speaking:</strong> {latestClient.russianSpeaking || 0}</p>
+                    <div className="space-y-6">
+                      <div className="bg-white p-4 rounded-md shadow-sm">
+                        <p className="text-sm font-medium text-gray-700 mb-2">Language Distribution</p>
+                        <p className="text-2xl font-semibold text-green-700">
+                          {latestClient.englishSpeaking + latestClient.russianSpeaking || 0} Total
+                        </p>
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <p className="text-sm text-gray-600"><strong>Off-Peak:</strong> {latestClient.offPeakClients || 0}</p>
-                        <p className="text-sm text-gray-600"><strong>Peak-Time:</strong> {latestClient.peakTimeClients || 0}</p>
+                      
+                      <div>
+                        <h4 className="text-md font-medium text-gray-700 mb-3">Language Distribution</h4>
+                        <div className="bg-white rounded-md shadow-sm overflow-hidden">
+                          <div className="grid grid-cols-2 gap-px bg-gray-200">
+                            <div className="bg-white p-3">
+                              <p className="text-xs text-gray-500 mb-1">English Speaking</p>
+                              <p className="text-lg font-semibold text-gray-900">{latestClient.englishSpeaking || 0}</p>
+                            </div>
+                            <div className="bg-white p-3">
+                              <p className="text-xs text-gray-500 mb-1">Russian Speaking</p>
+                              <p className="text-lg font-semibold text-gray-900">{latestClient.russianSpeaking || 0}</p>
+                            </div>
+                            <div className="bg-white p-3">
+                              <p className="text-xs text-gray-500 mb-1">Off-Peak</p>
+                              <p className="text-lg font-semibold text-gray-900">{latestClient.offPeakClients || 0}</p>
+                            </div>
+                            <div className="bg-white p-3">
+                              <p className="text-xs text-gray-500 mb-1">Peak-Time</p>
+                              <p className="text-lg font-semibold text-gray-900">{latestClient.peakTimeClients || 0}</p>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Second Horizontal Block */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Sales Information */}
                   <div className="bg-gray-50 p-6 rounded-lg">
                     <h3 className="text-lg font-medium text-gray-900 mb-4">Sales Information</h3>
-                    <div className="grid grid-cols-2 gap-4">
-                      <p className="text-sm text-gray-600"><strong>Vouchers Sold:</strong> {latestClient.soldVouchersAmount || 0}</p>
-                      <p className="text-sm text-gray-600"><strong>Vouchers Total (£):</strong> {latestClient.soldVouchersTotal || 0}</p>
-                      <p className="text-sm text-gray-600"><strong>Memberships Sold:</strong> {latestClient.soldMembershipsAmount || 0}</p>
-                      <p className="text-sm text-gray-600"><strong>Memberships Total (£):</strong> {latestClient.soldMembershipsTotal || 0}</p>
-                    </div>
-                  </div>
-
-                  {/* Yotta Transactions */}
-                  <div className="bg-gray-50 p-6 rounded-lg">
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">Yotta Transactions</h3>
-                    <div className="grid grid-cols-2 gap-4">
-                      <p className="text-sm text-gray-600"><strong>Deposits:</strong> {latestClient.yottaDepositsAmount || 0}</p>
-                      <p className="text-sm text-gray-600"><strong>Deposits Total (£):</strong> {latestClient.yottaDepositsTotal || 0}</p>
-                      <p className="text-sm text-gray-600"><strong>Links:</strong> {latestClient.yottaLinksAmount || 0}</p>
-                      <p className="text-sm text-gray-600"><strong>Links Total (£):</strong> {latestClient.yottaLinksTotal || 0}</p>
+                    <div className="space-y-6">
+                      <div className="bg-white p-4 rounded-md shadow-sm">
+                        <p className="text-sm font-medium text-gray-700 mb-2">Total Sales</p>
+                        <p className="text-2xl font-semibold text-blue-700">
+                          £{(latestClient.soldVouchersTotal || 0) + (latestClient.soldMembershipsTotal || 0)}
+                        </p>
+                      </div>
+                      
+                      <div>
+                        <h4 className="text-md font-medium text-gray-700 mb-3">Sales Breakdown</h4>
+                        <div className="bg-white rounded-md shadow-sm overflow-hidden">
+                          <div className="grid grid-cols-2 gap-px bg-gray-200">
+                            <div className="bg-white p-3">
+                              <p className="text-xs text-gray-500 mb-1">Vouchers Sold</p>
+                              <p className="text-lg font-semibold text-gray-900">{latestClient.soldVouchersAmount || 0}</p>
+                            </div>
+                            <div className="bg-white p-3">
+                              <p className="text-xs text-gray-500 mb-1">Vouchers Total</p>
+                              <p className="text-lg font-semibold text-gray-900">£{latestClient.soldVouchersTotal || 0}</p>
+                            </div>
+                            <div className="bg-white p-3">
+                              <p className="text-xs text-gray-500 mb-1">Memberships Sold</p>
+                              <p className="text-lg font-semibold text-gray-900">{latestClient.soldMembershipsAmount || 0}</p>
+                            </div>
+                            <div className="bg-white p-3">
+                              <p className="text-xs text-gray-500 mb-1">Memberships Total</p>
+                              <p className="text-lg font-semibold text-gray-900">£{latestClient.soldMembershipsTotal || 0}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
             </Card>
           )}
+
           {!latestClient && (
-            <Card className="bg-white border border-gray-200 shadow-sm flex-grow">
+            <Card className="bg-white border border-gray-200 shadow-sm">
               <div className="text-center p-4 text-gray-500">
-                <p>No recent survey data to display.</p>
+                <p>No survey data available for this date.</p>
                 <p className="text-sm mt-1">Add survey data to see details here.</p>
               </div>
             </Card>

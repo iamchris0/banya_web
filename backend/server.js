@@ -8,7 +8,7 @@ const app = express();
 const PORT = 2345;
 const SECRET_KEY = 'your_secret_key'; // Use a secure key in production
 
-app.use(cors({ origin: 'http://localhost:4173' }));
+app.use(cors({ origin: 'http://localhost:5173' }));
 app.use(bodyParser.json());
 
 // Hardcoded admin user
@@ -229,6 +229,8 @@ app.post('/api/weekly-data', authenticateToken, restrictToRoles(['boss']), (req,
     privateBookingBonus,
     preBookedValueNextWeek,
     preBookedPeopleNextWeek,
+    dailyPreBooked,
+    dailyPreBookedPeople,
     date,
     createdBy,
   } = req.body;
@@ -244,6 +246,20 @@ app.post('/api/weekly-data', authenticateToken, restrictToRoles(['boss']), (req,
   weekStart.setDate(diff);
   const weekStartStr = weekStart.toISOString().split('T')[0];
 
+  // Check if the week is more than 1 week ahead
+  const today = new Date();
+  const currentWeekStart = new Date(today);
+  const currentDayOfWeek = today.getDay();
+  const currentDiff = today.getDate() - currentDayOfWeek + (currentDayOfWeek === 0 ? -6 : 1);
+  currentWeekStart.setDate(currentDiff);
+  
+  const maxAllowedWeek = new Date(currentWeekStart);
+  maxAllowedWeek.setDate(maxAllowedWeek.getDate() + 7);
+  
+  if (weekStart > maxAllowedWeek) {
+    return res.status(400).json({ message: 'Cannot submit data for more than 1 week in advance' });
+  }
+
   const existingDataIndex = weeklyData.findIndex(item => item.date === weekStartStr);
 
   const data = {
@@ -254,6 +270,8 @@ app.post('/api/weekly-data', authenticateToken, restrictToRoles(['boss']), (req,
     privateBookingBonus: Number(privateBookingBonus) || 0,
     preBookedValueNextWeek: Number(preBookedValueNextWeek) || 0,
     preBookedPeopleNextWeek: Number(preBookedPeopleNextWeek) || 0,
+    dailyPreBooked: dailyPreBooked || {},
+    dailyPreBookedPeople: dailyPreBookedPeople || {},
     date: weekStartStr,
     createdBy: createdBy || req.user.username,
     isVerified: false,
@@ -279,24 +297,16 @@ app.put('/api/weekly-data/:id', authenticateToken, restrictToRoles(['boss']), (r
     privateBookingBonus,
     preBookedValueNextWeek,
     preBookedPeopleNextWeek,
+    dailyPreBooked,
+    dailyPreBookedPeople,
     date,
     createdBy,
   } = req.body;
 
-  const dataIndex = weeklyData.findIndex(item => item.id === Number(id));
+  const dataIndex = weeklyData.findIndex(item => item.id === parseInt(id));
   if (dataIndex === -1) {
     return res.status(404).json({ message: 'Weekly data not found' });
   }
-
-  if (!date) {
-    return res.status(400).json({ message: 'Missing required field: Date' });
-  }
-
-  const weekStart = new Date(date);
-  const dayOfWeek = weekStart.getDay();
-  const diff = weekStart.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
-  weekStart.setDate(diff);
-  const weekStartStr = weekStart.toISOString().split('T')[0];
 
   const updatedData = {
     ...weeklyData[dataIndex],
@@ -306,9 +316,10 @@ app.put('/api/weekly-data/:id', authenticateToken, restrictToRoles(['boss']), (r
     privateBookingBonus: Number(privateBookingBonus) || 0,
     preBookedValueNextWeek: Number(preBookedValueNextWeek) || 0,
     preBookedPeopleNextWeek: Number(preBookedPeopleNextWeek) || 0,
-    date: weekStartStr,
-    createdBy: createdBy || req.user.username,
-    isVerified: false,
+    dailyPreBooked: dailyPreBooked || {},
+    dailyPreBookedPeople: dailyPreBookedPeople || {},
+    date: date || weeklyData[dataIndex].date,
+    createdBy: createdBy || weeklyData[dataIndex].createdBy,
     status: 'edited',
   };
 

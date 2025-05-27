@@ -101,24 +101,48 @@ const WeeklyDataPage: React.FC = () => {
   };
 
   const handleNextWeek = () => {
-    setIsTransitioning(true);
-    setDirection('right');
-    const newWeekStart = new Date(selectedWeekStart);
-    newWeekStart.setDate(newWeekStart.getDate() + 7);
-    setTimeout(() => {
-      setSelectedWeekStart(newWeekStart);
-      setIsTransitioning(false);
-      setDirection(null);
-    }, 200);
-  };
-
-  const isCurrentWeek = (weekStart: Date) => {
+    const nextWeekStart = new Date(selectedWeekStart);
+    nextWeekStart.setDate(nextWeekStart.getDate() + 7);
+    
+    // Check if the next week is more than 1 week ahead of current week
     const today = new Date();
     const currentWeekStart = new Date(today);
     const dayOfWeek = today.getDay();
     const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
     currentWeekStart.setDate(diff);
-    return weekStart.toDateString() === currentWeekStart.toDateString();
+    
+    const maxAllowedWeek = new Date(currentWeekStart);
+    maxAllowedWeek.setDate(maxAllowedWeek.getDate() + 7);
+    
+    if (nextWeekStart > maxAllowedWeek) {
+      return; // Don't allow navigation beyond 1 week ahead
+    }
+    
+    setIsTransitioning(true);
+    setDirection('right');
+    setTimeout(() => {
+      setSelectedWeekStart(nextWeekStart);
+      setIsTransitioning(false);
+      setDirection(null);
+    }, 200);
+  };
+
+  const canNavigateToNextWeek = (weekStart: Date) => {
+    const today = new Date();
+    const currentWeekStart = new Date(today);
+    const dayOfWeek = today.getDay();
+    const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+    currentWeekStart.setDate(diff);
+    
+    // Calculate the maximum allowed week (1 week ahead of current week)
+    const maxAllowedWeek = new Date(currentWeekStart);
+    maxAllowedWeek.setDate(maxAllowedWeek.getDate() + 7);
+    
+    // Allow navigation if the next week would be within the allowed range
+    const nextWeek = new Date(weekStart);
+    nextWeek.setDate(nextWeek.getDate() + 7);
+    
+    return nextWeek <= maxAllowedWeek;
   };
 
   const handleEdit = () => {
@@ -181,7 +205,7 @@ const WeeklyDataPage: React.FC = () => {
             <FaArrowLeft size={20} />
           </button>
           <span className="text-xl font-medium">{formatWeek(selectedWeekStart)}</span>
-          {!isCurrentWeek(selectedWeekStart) && (
+          {canNavigateToNextWeek(selectedWeekStart) && (
             <button onClick={handleNextWeek} className="p-2 text-gray-800 hover:text-green-900">
               <FaArrowRight size={20} />
             </button>
@@ -249,23 +273,144 @@ const WeeklyDataPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Bonuses */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Main Content Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  {/* Bonuses Section */}
                   <div className="bg-gray-50 p-6 rounded-lg">
                     <h3 className="text-lg font-medium text-gray-900 mb-4">Bonuses</h3>
-                    <div className="grid grid-cols-2 gap-4">
-                      <p className="text-sm text-gray-600"><strong>Staff Bonus (£):</strong> {weeklyData.staffBonus || 0}</p>
-                      <p className="text-sm text-gray-600"><strong>On Desk Bonus (£):</strong> {weeklyData.onDeskBonus || 0}</p>
-                      <p className="text-sm text-gray-600"><strong>Voucher Sales Bonus (£):</strong> {weeklyData.voucherSalesBonus || 0}</p>
-                      <p className="text-sm text-gray-600"><strong>Private Booking Bonus (£):</strong> {weeklyData.privateBookingBonus || 0}</p>
+                    <div className="space-y-6">
+                      <div className="bg-white p-4 rounded-md shadow-sm">
+                        <p className="text-sm font-medium text-gray-700 mb-2">Total Bonuses</p>
+                        <p className="text-2xl font-semibold text-purple-700">
+                          {weeklyData.staffBonus + weeklyData.onDeskBonus + weeklyData.voucherSalesBonus + weeklyData.privateBookingBonus} (£{(weeklyData.staffBonus || 0) + (weeklyData.onDeskBonus || 0) + (weeklyData.voucherSalesBonus || 0) + (weeklyData.privateBookingBonus || 0)})
+                        </p>
+                      </div>
+                      
+                      <div>
+                        <h4 className="text-md font-medium text-gray-700 mb-3">Bonus Distribution</h4>
+                        <div className="bg-white rounded-md shadow-sm overflow-hidden">
+                          <div className="grid grid-cols-2 gap-px bg-gray-200">
+                            <div className="bg-white p-3">
+                              <p className="text-xs text-gray-500 mb-1">Staff Bonus</p>
+                              <p className="text-lg font-semibold text-gray-900">£{weeklyData.staffBonus || 0}</p>
+                            </div>
+                            <div className="bg-white p-3">
+                              <p className="text-xs text-gray-500 mb-1">On Desk Bonus</p>
+                              <p className="text-lg font-semibold text-gray-900">£{weeklyData.onDeskBonus || 0}</p>
+                            </div>
+                            <div className="bg-white p-3">
+                              <p className="text-xs text-gray-500 mb-1">Voucher Sales Bonus</p>
+                              <p className="text-lg font-semibold text-gray-900">£{weeklyData.voucherSalesBonus || 0}</p>
+                            </div>
+                            <div className="bg-white p-3">
+                              <p className="text-xs text-gray-500 mb-1">Private Booking Bonus</p>
+                              <p className="text-lg font-semibold text-gray-900">£{weeklyData.privateBookingBonus || 0}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
+                  {/* Pre-booked Value Section */}
                   <div className="bg-gray-50 p-6 rounded-lg">
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">Pre-Booked for Next Week</h3>
-                    <div className="grid grid-cols-2 gap-4">
-                      <p className="text-sm text-gray-600"><strong>Pre-Booked Value (£):</strong> {weeklyData.preBookedValueNextWeek || 0}</p>
-                      <p className="text-sm text-gray-600"><strong>Pre-Booked People:</strong> {weeklyData.preBookedPeopleNextWeek || 0}</p>
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">Pre-booked Value</h3>
+                    <div className="space-y-6">
+                      <div className="bg-white p-4 rounded-md shadow-sm">
+                        <p className="text-sm font-medium text-gray-700 mb-2">Total Pre-booked Value</p>
+                        <p className="text-2xl font-semibold text-green-700">£{weeklyData.preBookedValueNextWeek || 0}</p>
+                      </div>
+                      
+                      <div>
+                        <h4 className="text-md font-medium text-gray-700 mb-3">Daily Value Distribution</h4>
+                        <div className="bg-white rounded-md shadow-sm overflow-hidden">
+                          {/* Weekdays */}
+                          <div className="grid grid-cols-4 gap-px bg-gray-200">
+                            <div className="bg-white p-3">
+                              <p className="text-xs text-gray-500 mb-1">Mon</p>
+                              <p className="text-lg font-semibold text-gray-900">£{weeklyData.dailyPreBooked?.monday || 0}</p>
+                            </div>
+                            <div className="bg-white p-3">
+                              <p className="text-xs text-gray-500 mb-1">Tue</p>
+                              <p className="text-lg font-semibold text-gray-900">£{weeklyData.dailyPreBooked?.tuesday || 0}</p>
+                            </div>
+                            <div className="bg-white p-3">
+                              <p className="text-xs text-gray-500 mb-1">Wed</p>
+                              <p className="text-lg font-semibold text-gray-900">£{weeklyData.dailyPreBooked?.wednesday || 0}</p>
+                            </div>
+                            <div className="bg-white p-3">
+                              <p className="text-xs text-gray-500 mb-1">Thu</p>
+                              <p className="text-lg font-semibold text-gray-900">£{weeklyData.dailyPreBooked?.thursday || 0}</p>
+                            </div>
+                          </div>
+                          {/* Weekend */}
+                          <div className="grid grid-cols-3 gap-px bg-gray-200 mt-px">
+                            <div className="bg-white p-3">
+                              <p className="text-xs text-gray-500 mb-1">Fri</p>
+                              <p className="text-lg font-semibold text-gray-900">£{weeklyData.dailyPreBooked?.friday || 0}</p>
+                            </div>
+                            <div className="bg-white p-3">
+                              <p className="text-xs text-gray-500 mb-1">Sat</p>
+                              <p className="text-lg font-semibold text-gray-900">£{weeklyData.dailyPreBooked?.saturday || 0}</p>
+                            </div>
+                            <div className="bg-white p-3">
+                              <p className="text-xs text-gray-500 mb-1">Sun</p>
+                              <p className="text-lg font-semibold text-gray-900">£{weeklyData.dailyPreBooked?.sunday || 0}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Pre-booked People Section */}
+                  <div className="bg-gray-50 p-6 rounded-lg">
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">Pre-booked People</h3>
+                    <div className="space-y-6">
+                      <div className="bg-white p-4 rounded-md shadow-sm">
+                        <p className="text-sm font-medium text-gray-700 mb-2">Total Pre-booked People</p>
+                        <p className="text-2xl font-semibold text-blue-700">{weeklyData.preBookedPeopleNextWeek || 0}</p>
+                      </div>
+                      
+                      <div>
+                        <h4 className="text-md font-medium text-gray-700 mb-3">Daily People Distribution</h4>
+                        <div className="bg-white rounded-md shadow-sm overflow-hidden">
+                          {/* Weekdays */}
+                          <div className="grid grid-cols-4 gap-px bg-gray-200">
+                            <div className="bg-white p-3">
+                              <p className="text-xs text-gray-500 mb-1">Mon</p>
+                              <p className="text-lg font-semibold text-gray-900">{weeklyData.dailyPreBookedPeople?.monday || 0}</p>
+                            </div>
+                            <div className="bg-white p-3">
+                              <p className="text-xs text-gray-500 mb-1">Tue</p>
+                              <p className="text-lg font-semibold text-gray-900">{weeklyData.dailyPreBookedPeople?.tuesday || 0}</p>
+                            </div>
+                            <div className="bg-white p-3">
+                              <p className="text-xs text-gray-500 mb-1">Wed</p>
+                              <p className="text-lg font-semibold text-gray-900">{weeklyData.dailyPreBookedPeople?.wednesday || 0}</p>
+                            </div>
+                            <div className="bg-white p-3">
+                              <p className="text-xs text-gray-500 mb-1">Thu</p>
+                              <p className="text-lg font-semibold text-gray-900">{weeklyData.dailyPreBookedPeople?.thursday || 0}</p>
+                            </div>
+                          </div>
+                          {/* Weekend */}
+                          <div className="grid grid-cols-3 gap-px bg-gray-200 mt-px">
+                            <div className="bg-white p-3">
+                              <p className="text-xs text-gray-500 mb-1">Fri</p>
+                              <p className="text-lg font-semibold text-gray-900">{weeklyData.dailyPreBookedPeople?.friday || 0}</p>
+                            </div>
+                            <div className="bg-white p-3">
+                              <p className="text-xs text-gray-500 mb-1">Sat</p>
+                              <p className="text-lg font-semibold text-gray-900">{weeklyData.dailyPreBookedPeople?.saturday || 0}</p>
+                            </div>
+                            <div className="bg-white p-3">
+                              <p className="text-xs text-gray-500 mb-1">Sun</p>
+                              <p className="text-lg font-semibold text-gray-900">{weeklyData.dailyPreBookedPeople?.sunday || 0}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
