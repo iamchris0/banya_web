@@ -247,7 +247,7 @@ const WeeklyDataPage: React.FC = () => {
                     </span>
                   </div>
                   <div className="flex space-x-2 ml-4">
-                    {weeklyData && (
+                    {user?.role === 'boss' && weeklyData && (
                       <>
                         <button
                           onClick={handleEdit}

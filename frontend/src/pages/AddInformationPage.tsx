@@ -29,15 +29,20 @@ const SurveyModal: React.FC<SurveyModalProps> = ({ isOpen, onClose, onSubmitSucc
     offPeakClients: 0,
     peakTimeClients: 0,
     newClients: 0,
-    soldVouchersAmount: 0,
-    soldVouchersTotal: 0,
-    soldMembershipsAmount: 0,
-    soldMembershipsTotal: 0,
-    yottaDepositsAmount: 0,
-    yottaDepositsTotal: 0,
+    onlineMembershipsAmount: 0,
+    onlineMembershipsTotal: 0,
+    offlineMembershipsAmount: 0,
+    offlineMembershipsTotal: 0,
+    onlineVouchersAmount: 0,
+    onlineVouchersTotal: 0,
+    paperVouchersAmount: 0,
+    paperVouchersTotal: 0,
     yottaLinksAmount: 0,
     yottaLinksTotal: 0,
-    date: new Date().toISOString().split('T')[0],
+    yottaWidgetAmount: 0,
+    yottaWidgetTotal: 0,
+    digitalBillAmount: 0,
+    digitalBillTotal: 0,
     createdBy: user?.username || '',
   };
 
@@ -48,7 +53,6 @@ const SurveyModal: React.FC<SurveyModalProps> = ({ isOpen, onClose, onSubmitSucc
       setFormData(initialData ? {
         ...initialFormData,
         ...initialData,
-        date: initialData.date || initialFormData.date,
       } : initialFormData);
       setError('');
       setShowSuccess(false);
@@ -80,6 +84,16 @@ const SurveyModal: React.FC<SurveyModalProps> = ({ isOpen, onClose, onSubmitSucc
       setError('User information missing');
       return;
     }
+
+    // Add validation for total people vs sum of men and women
+    const totalPeople = parseInt(String(formData.amountOfPeople) || '0');
+    const sumOfGenders = parseInt(String(formData.male) || '0') + parseInt(String(formData.female) || '0');
+    
+    if (totalPeople !== sumOfGenders) {
+      setError(`Total number of people (${totalPeople}) must equal the sum of male (${formData.male}) and female (${formData.female})`);
+      return;
+    }
+
     setIsSubmitting(true);
     setError('');
 
@@ -104,16 +118,23 @@ const SurveyModal: React.FC<SurveyModalProps> = ({ isOpen, onClose, onSubmitSucc
           offPeakClients: parseInt(String(formData.offPeakClients) || '0'),
           peakTimeClients: parseInt(String(formData.peakTimeClients) || '0'),
           newClients: parseInt(String(formData.newClients) || '0'),
-          soldVouchersAmount: parseInt(String(formData.soldVouchersAmount) || '0'),
-          soldVouchersTotal: parseInt(String(formData.soldVouchersTotal) || '0'),
-          soldMembershipsAmount: parseInt(String(formData.soldMembershipsAmount) || '0'),
-          soldMembershipsTotal: parseInt(String(formData.soldMembershipsTotal) || '0'),
-          yottaDepositsAmount: parseInt(String(formData.yottaDepositsAmount) || '0'),
-          yottaDepositsTotal: parseInt(String(formData.yottaDepositsTotal) || '0'),
+          onlineMembershipsAmount: parseInt(String(formData.onlineMembershipsAmount) || '0'),
+          onlineMembershipsTotal: parseInt(String(formData.onlineMembershipsTotal) || '0'),
+          offlineMembershipsAmount: parseInt(String(formData.offlineMembershipsAmount) || '0'),
+          offlineMembershipsTotal: parseInt(String(formData.offlineMembershipsTotal) || '0'),
+          onlineVouchersAmount: parseInt(String(formData.onlineVouchersAmount) || '0'),
+          onlineVouchersTotal: parseInt(String(formData.onlineVouchersTotal) || '0'),
+          paperVouchersAmount: parseInt(String(formData.paperVouchersAmount) || '0'),
+          paperVouchersTotal: parseInt(String(formData.paperVouchersTotal) || '0'),
           yottaLinksAmount: parseInt(String(formData.yottaLinksAmount) || '0'),
           yottaLinksTotal: parseInt(String(formData.yottaLinksTotal) || '0'),
-          date: formData.date,
+          digitalBillAmount: parseInt(String(formData.digitalBillAmount) || '0'),
+          digitalBillTotal: parseInt(String(formData.digitalBillTotal) || '0'),
+          date: new Date().toISOString().split('T')[0],
           createdBy: user.username,
+          status: initialData?.id 
+            ? (user.role === 'head' ? 'edited' : 'pending')
+            : 'pending',
         }),
       });
 
@@ -189,19 +210,8 @@ const SurveyModal: React.FC<SurveyModalProps> = ({ isOpen, onClose, onSubmitSucc
                     <div className="bg-gray-50 p-6 rounded-lg">
                       <h3 className="text-lg font-medium text-gray-900 mb-4">General Information</h3>
                       <div className="space-y-4">
-                        {/* Row 1: Date */}
-                        <div className="grid grid-cols-1">
-                          <Input
-                            label="Date"
-                            type="date"
-                            name="date"
-                            value={formData.date}
-                            onChange={handleChange}
-                            required
-                          />
-                        </div>
-                        {/* Row 2: Total Visitors */}
-                        <div className="grid grid-cols-1">
+                        {/* Row 1: Total Visitors */}
+                        <div className="grid grid-cols-2 gap-4">
                           <Input
                             label="Total Visitors"
                             type="number"
@@ -210,6 +220,14 @@ const SurveyModal: React.FC<SurveyModalProps> = ({ isOpen, onClose, onSubmitSucc
                             onChange={handleChange}
                             min="0"
                             required
+                          />
+                          <Input
+                            label="New Clients"
+                            type="number"
+                            name="newClients"
+                            value={formData.newClients}
+                            onChange={handleChange}
+                            min="0"
                           />
                         </div>
                         {/* Row 3: Male and Female */}
@@ -276,17 +294,6 @@ const SurveyModal: React.FC<SurveyModalProps> = ({ isOpen, onClose, onSubmitSucc
                             min="0"
                           />
                         </div>
-                        {/* Row 3: New Clients */}
-                        <div className="grid grid-cols-1">
-                          <Input
-                            label="New Clients"
-                            type="number"
-                            name="newClients"
-                            value={formData.newClients}
-                            onChange={handleChange}
-                            min="0"
-                          />
-                        </div>
                       </div>
                     </div>
                   </div>
@@ -298,62 +305,78 @@ const SurveyModal: React.FC<SurveyModalProps> = ({ isOpen, onClose, onSubmitSucc
                       <h3 className="text-lg font-medium text-gray-900 mb-4">Sales Information</h3>
                       <div className="grid grid-cols-2 gap-4">
                         <Input
-                          label="Vouchers Sold"
+                          label="Online Memberships"
                           type="number"
-                          name="soldVouchersAmount"
-                          value={formData.soldVouchersAmount}
+                          name="onlineMembershipsAmount"
+                          value={formData.onlineMembershipsAmount}
                           onChange={handleChange}
                           min="0"
                         />
                         <Input
-                          label="Vouchers Total (£)"
+                          label="Online Memberships (£)"
                           type="number"
-                          name="soldVouchersTotal"
-                          value={formData.soldVouchersTotal}
+                          name="onlineMembershipsTotal"
+                          value={formData.onlineMembershipsTotal}
                           onChange={handleChange}
                           min="0"
                         />
                         <Input
-                          label="Memberships Sold"
+                          label="Offline Memberships"
                           type="number"
-                          name="soldMembershipsAmount"
-                          value={formData.soldMembershipsAmount}
+                          name="offlineMembershipsAmount"
+                          value={formData.offlineMembershipsAmount}
                           onChange={handleChange}
                           min="0"
                         />
                         <Input
-                          label="Memberships Total (£)"
+                          label="Offline Memberships (£)"
                           type="number"
-                          name="soldMembershipsTotal"
-                          value={formData.soldMembershipsTotal}
+                          name="offlineMembershipsTotal"
+                          value={formData.offlineMembershipsTotal}
+                          onChange={handleChange}
+                          min="0"
+                        />
+                        <Input
+                          label="Online Vouchers"
+                          type="number"
+                          name="onlineVouchersAmount"
+                          value={formData.onlineVouchersAmount}
+                          onChange={handleChange}
+                          min="0"
+                        />
+                        <Input
+                          label="Online Vouchers (£)"
+                          type="number"
+                          name="onlineVouchersTotal"
+                          value={formData.onlineVouchersTotal}
+                          onChange={handleChange}
+                          min="0"
+                        />
+                        <Input
+                          label="Paper Vouchers"
+                          type="number"
+                          name="paperVouchersAmount"
+                          value={formData.paperVouchersAmount}
+                          onChange={handleChange}
+                          min="0"
+                        />
+                        <Input
+                          label="Paper Vouchers Total (£)"
+                          type="number"
+                          name="paperVouchersTotal"
+                          value={formData.paperVouchersTotal}
                           onChange={handleChange}
                           min="0"
                         />
                       </div>
                     </div>
 
-                    {/* Yotta Transactions */}
+                    {/* Transactions */}
                     <div className="bg-gray-50 p-6 rounded-lg">
-                      <h3 className="text-lg font-medium text-gray-900 mb-4">Yotta Transactions</h3>
+                      <h3 className="text-lg font-medium text-gray-900 mb-4">Transactions</h3>
                       <div className="grid grid-cols-2 gap-4">
                         <Input
-                          label="Deposits"
-                          type="number"
-                          name="yottaDepositsAmount"
-                          value={formData.yottaDepositsAmount}
-                          onChange={handleChange}
-                          min="0"
-                        />
-                        <Input
-                          label="Deposits Total (£)"
-                          type="number"
-                          name="yottaDepositsTotal"
-                          value={formData.yottaDepositsTotal}
-                          onChange={handleChange}
-                          min="0"
-                        />
-                        <Input
-                          label="Links"
+                          label="Yotta Link"
                           type="number"
                           name="yottaLinksAmount"
                           value={formData.yottaLinksAmount}
@@ -361,10 +384,42 @@ const SurveyModal: React.FC<SurveyModalProps> = ({ isOpen, onClose, onSubmitSucc
                           min="0"
                         />
                         <Input
-                          label="Links Total (£)"
+                          label="Yotta Link (£)"
                           type="number"
                           name="yottaLinksTotal"
                           value={formData.yottaLinksTotal}
+                          onChange={handleChange}
+                          min="0"
+                        />
+                        <Input
+                          label="Yotta Widget"
+                          type="number"
+                          name="yottaWidgetAmount"
+                          value={formData.yottaWidgetAmount}
+                          onChange={handleChange}
+                          min="0"
+                        />
+                        <Input
+                          label="Yotta Widget (£)"
+                          type="number"
+                          name="yottaWidgetTotal"
+                          value={formData.yottaWidgetTotal}
+                          onChange={handleChange}
+                          min="0"
+                        />
+                        <Input
+                          label="Digital Bill"
+                          type="number"
+                          name="digitalBillAmount"
+                          value={formData.digitalBillAmount}
+                          onChange={handleChange}
+                          min="0"
+                        />
+                        <Input
+                          label="Digital Bill Total (£)"
+                          type="number"
+                          name="digitalBillTotal"
+                          value={formData.digitalBillTotal}
                           onChange={handleChange}
                           min="0"
                         />

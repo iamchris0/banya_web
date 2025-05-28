@@ -6,7 +6,7 @@ import { FaRegEdit, FaCheck, FaArrowLeft, FaArrowRight } from 'react-icons/fa';
 import SurveyModal from './AddInformationPage';
 
 const VerificationPage: React.FC = () => {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [clients, setClients] = useState<ClientInfo[]>([]);
   const [error, setError] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -215,18 +215,25 @@ const VerificationPage: React.FC = () => {
                         </span>
                       </div>
                       <div className="flex space-x-2">
-                        <button
-                          onClick={() => handleEdit(client)}
-                          className="p-2 text-blue-700 hover:text-blue-800 transition-colors"
-                          title="Edit Survey"
-                        >
-                          <FaRegEdit size={20} />
-                        </button>
-                        {!client.isVerified && (
+                        {(user?.role === 'admin' || (user?.role === 'head')) && (
+                          <button
+                            onClick={() => handleEdit(client)}
+                            className="p-2 text-blue-700 hover:text-blue-800 transition-colors"
+                            title="Edit Survey"
+                          >
+                            <FaRegEdit size={20} />
+                          </button>
+                        )}
+                        {user?.role === 'head' && !client.isVerified && (
                           <button
                             onClick={() => handleConfirm(client.id!)}
-                            className="p-2 text-green-700 hover:text-green-900 transition-colors"
+                            className={`p-2 transition-colors ${
+                              client.status === 'edited'
+                                ? 'text-green-700 hover:text-green-900'
+                                : 'text-gray-400 cursor-not-allowed'
+                            }`}
                             title="Confirm Survey"
+                            disabled={client.status !== 'edited'}
                           >
                             <FaCheck size={20} />
                           </button>

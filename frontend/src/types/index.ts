@@ -1,5 +1,5 @@
 export type UserRole = 'admin' | 'head' | 'boss';
-export type Status = 'edited' | 'Confirmed';
+export type Status = 'pending' | 'edited' | 'Confirmed';
 
 export interface User {
   username: string;
@@ -23,14 +23,20 @@ export interface ClientInfo {
   offPeakClients: number;
   peakTimeClients: number;
   newClients: number;
-  soldVouchersAmount: number;
-  soldVouchersTotal: number;
-  soldMembershipsAmount: number;
-  soldMembershipsTotal: number;
-  yottaDepositsAmount: number;
-  yottaDepositsTotal: number;
+  onlineMembershipsAmount: number;
+  onlineMembershipsTotal: number;
+  offlineMembershipsAmount: number;
+  offlineMembershipsTotal: number;
+  onlineVouchersAmount: number;
+  onlineVouchersTotal: number;
+  paperVouchersAmount: number;
+  paperVouchersTotal: number;
   yottaLinksAmount: number;
   yottaLinksTotal: number;
+  yottaWidgetAmount: number;
+  yottaWidgetTotal: number;
+  digitalBillAmount: number;
+  digitalBillTotal: number;
   staffBonus: number;
   onDeskBonus: number;
   voucherSalesBonus: number;
