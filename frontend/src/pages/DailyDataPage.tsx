@@ -162,14 +162,20 @@ const DailyDataPage: React.FC = () => {
     setSelectedClient(undefined);
   };
 
-  const getStatusColor = (isVerified: boolean) => {
-    return isVerified ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800';
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'Confirmed':
+        return 'bg-green-100 text-green-800';
+      case 'edited':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'pending':
+        return 'bg-blue-100 text-blue-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
   };
 
   const filteredClients = filterClientsByDate(clients, selectedDate);
-  const totalClients = filteredClients.reduce((sum, client) => sum + (client.amountOfPeople || 0), 0);
-  const pendingClients = filteredClients.filter((client) => !client.isVerified).length;
-  const verifiedClients = filteredClients.filter((client) => client.isVerified).length;
   const latestClient = filteredClients[0];
 
   return (
@@ -212,13 +218,13 @@ const DailyDataPage: React.FC = () => {
                 <div className="flex justify-between items-center">
                   <div className="flex-1">
                     <span
-                      className={`inline-block px-4 py-1 rounded-full text-sm font-medium pl-4 ${getStatusColor(latestClient.isVerified)}`}
+                      className={`inline-block px-4 py-1 rounded-full text-sm font-medium pl-4 ${getStatusColor(latestClient.status)}`}
                     >
-                      Status: {latestClient.isVerified ? 'Confirmed' : 'Pending'}
+                      Status: {latestClient.status.charAt(0).toUpperCase() + latestClient.status.slice(1)}
                     </span>
                   </div>
                   <div className="flex space-x-2 ml-4">
-                    {user?.role === 'admin' && (
+                    {(user?.role === 'head' || user?.role === 'boss' || user?.role === 'admin') && (
                       <>
                         <button
                           onClick={() => handleEdit(latestClient)}
@@ -227,18 +233,20 @@ const DailyDataPage: React.FC = () => {
                         >
                           <FaRegEdit size={20} />
                         </button>
-                        <button
-                          onClick={() => handleConfirm(latestClient)}
-                          className={`p-2 transition-colors ${
-                            latestClient.id && !latestClient.isVerified
-                              ? 'text-green-700 hover:text-green-900'
-                              : 'text-gray-400 cursor-not-allowed'
-                          }`}
-                          title="Confirm Survey"
-                          disabled={!latestClient.id || latestClient.isVerified}
-                        >
-                          <FaCheck size={20} />
-                        </button>
+                        {user?.role === 'head' && (
+                          <button
+                            onClick={() => handleConfirm(latestClient)}
+                            className={`p-2 transition-colors ${
+                              latestClient.id && latestClient.status === 'edited'
+                                ? 'text-green-700 hover:text-green-900'
+                                : 'text-gray-400 cursor-not-allowed'
+                            }`}
+                            title="Confirm Survey"
+                            disabled={!latestClient.id || latestClient.status !== 'edited'}
+                          >
+                            <FaCheck size={20} />
+                          </button>
+                        )}
                       </>
                     )}
                   </div>

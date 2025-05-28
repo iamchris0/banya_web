@@ -260,6 +260,7 @@ const WeeklyDataSurveyModal: React.FC<WeeklyDataSurveyModalProps> = ({ isOpen, o
         ),
         date: formData.date,
         createdBy: user.username,
+        ...(user.role === 'head' && initialData?.id ? { status: 'edited' } : {}),
       };
       
       const response = await fetch(url, {

@@ -114,6 +114,9 @@ const SurveyModal: React.FC<SurveyModalProps> = ({ isOpen, onClose, onSubmitSucc
           yottaLinksTotal: parseInt(String(formData.yottaLinksTotal) || '0'),
           date: formData.date,
           createdBy: user.username,
+          status: initialData?.id 
+            ? (user.role === 'head' ? 'edited' : 'pending')
+            : 'pending',
         }),
       });
 

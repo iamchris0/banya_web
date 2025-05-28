@@ -155,7 +155,6 @@ app.put('/api/clients/:id', authenticateToken, restrictToRoles(['admin', 'head']
     return res.status(400).json({ message: 'Missing required fields: Amount Of People or Date' });
   }
 
-  const wasVerified = clients[clientIndex].isVerified;
   const updatedClient = {
     ...clients[clientIndex],
     amountOfPeople: Number(amountOfPeople) || 0,
@@ -176,8 +175,8 @@ app.put('/api/clients/:id', authenticateToken, restrictToRoles(['admin', 'head']
     yottaLinksAmount: Number(yottaLinksAmount) || 0,
     yottaLinksTotal: Number(yottaLinksTotal) || 0,
     date,
-    isVerified: req.user.role === 'admin' && wasVerified ? false : clients[clientIndex].isVerified,
-    status: req.user.role === 'admin' && wasVerified ? 'edited' : clients[clientIndex].status
+    isVerified: false,
+    status: 'edited'
   };
 
   clients[clientIndex] = updatedClient;
