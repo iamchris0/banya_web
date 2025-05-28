@@ -253,110 +253,187 @@ const DailyDataPage: React.FC = () => {
                 </div>
 
                 {/* Main Content Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                  {/* General Information */}
-                  <div className="bg-gray-50 p-6 rounded-lg">
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">General Information</h3>
-                    <div className="space-y-6">
-                      <div className="bg-white p-4 rounded-md shadow-sm">
-                        <p className="text-sm font-medium text-gray-700 mb-2">Total Visitors</p>
-                        <p className="text-2xl font-semibold text-purple-700">{latestClient.amountOfPeople || 0}</p>
+                <div className="grid grid-cols-1 gap-8">
+                  {/* First Row: General Information and Demographics & Timing */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    {/* General Information */}
+                    <div className="bg-gray-50 p-6 rounded-lg">
+                      <h3 className="text-lg font-medium text-gray-900 mb-4">General Information</h3>
+                      <div className="space-y-6">
+                        <div className="bg-white p-4 rounded-md shadow-sm">
+                          <p className="text-sm font-medium text-gray-700 mb-2">Total Visitors</p>
+                          <p className="text-2xl font-semibold text-purple-700">{latestClient.amountOfPeople || 0}</p>
+                        </div>
+                        
+                        <div>
+                          <h4 className="text-md font-medium text-gray-700 mb-3">Visitor Distribution</h4>
+                          <div className="bg-white rounded-md shadow-sm overflow-hidden">
+                            <div className="grid grid-cols-2 gap-px bg-gray-200">
+                              <div className="bg-white p-3">
+                                <p className="text-xs text-gray-500 mb-1">Total</p>
+                                <p className="text-lg font-semibold text-gray-900">{latestClient.amountOfPeople || 0}</p>
+                              </div>
+                              <div className="bg-white p-3">
+                                <p className="text-xs text-gray-500 mb-1">New Clients</p>
+                                <p className="text-lg font-semibold text-gray-900">{latestClient.newClients || 0}</p>
+                              </div>
+                              <div className="bg-white p-3">
+                                <p className="text-xs text-gray-500 mb-1">Male</p>
+                                <p className="text-lg font-semibold text-gray-900">{latestClient.male || 0}</p>
+                              </div>
+                              <div className="bg-white p-3">
+                                <p className="text-xs text-gray-500 mb-1">Female</p>
+                                <p className="text-lg font-semibold text-gray-900">{latestClient.female || 0}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      
-                      <div>
-                        <h4 className="text-md font-medium text-gray-700 mb-3">Visitor Distribution</h4>
-                        <div className="bg-white rounded-md shadow-sm overflow-hidden">
-                          <div className="grid grid-cols-2 gap-px bg-gray-200">
-                            <div className="bg-white p-3">
-                              <p className="text-xs text-gray-500 mb-1">Total</p>
-                              <p className="text-lg font-semibold text-gray-900">{latestClient.amountOfPeople || 0}</p>
+                    </div>
+
+                    {/* Demographics & Timing */}
+                    <div className="bg-gray-50 p-6 rounded-lg">
+                      <h3 className="text-lg font-medium text-gray-900 mb-4">Demographics & Timing</h3>
+                      <div className="space-y-6">
+                        <div className="bg-white p-4 rounded-md shadow-sm">
+                          <p className="text-sm font-medium text-gray-700 mb-2">Language Distribution</p>
+                          <p className="text-2xl font-semibold text-green-700">
+                            {latestClient.englishSpeaking + latestClient.russianSpeaking || 0}
+                          </p>
+                        </div>
+                        
+                        <div>
+                          <h4 className="text-md font-medium text-gray-700 mb-3">Language Distribution</h4>
+                          <div className="bg-white rounded-md shadow-sm overflow-hidden">
+                            <div className="grid grid-cols-2 gap-px bg-gray-200">
+                              <div className="bg-white p-3">
+                                <p className="text-xs text-gray-500 mb-1">English Speaking</p>
+                                <p className="text-lg font-semibold text-gray-900">{latestClient.englishSpeaking || 0}</p>
+                              </div>
+                              <div className="bg-white p-3">
+                                <p className="text-xs text-gray-500 mb-1">Russian Speaking</p>
+                                <p className="text-lg font-semibold text-gray-900">{latestClient.russianSpeaking || 0}</p>
+                              </div>
+                              <div className="bg-white p-3">
+                                <p className="text-xs text-gray-500 mb-1">Off-Peak</p>
+                                <p className="text-lg font-semibold text-gray-900">{latestClient.offPeakClients || 0}</p>
+                              </div>
+                              <div className="bg-white p-3">
+                                <p className="text-xs text-gray-500 mb-1">Peak-Time</p>
+                                <p className="text-lg font-semibold text-gray-900">{latestClient.peakTimeClients || 0}</p>
+                              </div>
                             </div>
-                            <div className="bg-white p-3">
-                              <p className="text-xs text-gray-500 mb-1">New Clients</p>
-                              <p className="text-lg font-semibold text-gray-900">{latestClient.newClients || 0}</p>
-                            </div>
-                            <div className="bg-white p-3">
-                              <p className="text-xs text-gray-500 mb-1">Male</p>
-                              <p className="text-lg font-semibold text-gray-900">{latestClient.male || 0}</p>
-                            </div>
-                            <div className="bg-white p-3">
-                              <p className="text-xs text-gray-500 mb-1">Female</p>
-                              <p className="text-lg font-semibold text-gray-900">{latestClient.female || 0}</p>
-                            </div>
-                            
                           </div>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Demographics & Timing */}
-                  <div className="bg-gray-50 p-6 rounded-lg">
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">Demographics & Timing</h3>
-                    <div className="space-y-6">
-                      <div className="bg-white p-4 rounded-md shadow-sm">
-                        <p className="text-sm font-medium text-gray-700 mb-2">Language Distribution</p>
-                        <p className="text-2xl font-semibold text-green-700">
-                          {latestClient.englishSpeaking + latestClient.russianSpeaking || 0} Total
-                        </p>
-                      </div>
-                      
-                      <div>
-                        <h4 className="text-md font-medium text-gray-700 mb-3">Language Distribution</h4>
-                        <div className="bg-white rounded-md shadow-sm overflow-hidden">
-                          <div className="grid grid-cols-2 gap-px bg-gray-200">
-                            <div className="bg-white p-3">
-                              <p className="text-xs text-gray-500 mb-1">English Speaking</p>
-                              <p className="text-lg font-semibold text-gray-900">{latestClient.englishSpeaking || 0}</p>
+                  {/* Second Row: Sales Information and Transactions */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    {/* Sales Information */}
+                    <div className="bg-gray-50 p-6 rounded-lg">
+                      <h3 className="text-lg font-medium text-gray-900 mb-4">Sales Information</h3>
+                      <div className="space-y-6">
+                        <div className="bg-white p-4 rounded-md shadow-sm">
+                          <p className="text-sm font-medium text-gray-700 mb-2">Total Sales</p>
+                          <p className="text-2xl font-semibold text-blue-700">
+                            £{(latestClient.onlineMembershipsTotal || 0) + 
+                               (latestClient.offlineMembershipsTotal || 0) + 
+                               (latestClient.onlineVouchersTotal || 0) + 
+                               (latestClient.paperVouchersTotal || 0)}
+                          </p>
+                        </div>
+                        
+                        <div>
+                          <h4 className="text-md font-medium text-gray-700 mb-3">Sales Breakdown</h4>
+                          <div className="bg-white rounded-md shadow-sm overflow-hidden">
+                            <div className="grid grid-cols-2 gap-px bg-gray-200">
+                              <div className="bg-white p-3">
+                                <p className="text-xs text-gray-500 mb-1">Online Memberships</p>
+                                <p className="text-lg font-semibold text-gray-900">{latestClient.onlineMembershipsAmount || 0}</p>
+                              </div>
+                              <div className="bg-white p-3">
+                                <p className="text-xs text-gray-500 mb-1">Online Memberships Total</p>
+                                <p className="text-lg font-semibold text-gray-900">£{latestClient.onlineMembershipsTotal || 0}</p>
+                              </div>
+                              <div className="bg-white p-3">
+                                <p className="text-xs text-gray-500 mb-1">Offline Memberships</p>
+                                <p className="text-lg font-semibold text-gray-900">{latestClient.offlineMembershipsAmount || 0}</p>
+                              </div>
+                              <div className="bg-white p-3">
+                                <p className="text-xs text-gray-500 mb-1">Offline Memberships Total</p>
+                                <p className="text-lg font-semibold text-gray-900">£{latestClient.offlineMembershipsTotal || 0}</p>
+                              </div>
                             </div>
-                            <div className="bg-white p-3">
-                              <p className="text-xs text-gray-500 mb-1">Russian Speaking</p>
-                              <p className="text-lg font-semibold text-gray-900">{latestClient.russianSpeaking || 0}</p>
-                            </div>
-                            <div className="bg-white p-3">
-                              <p className="text-xs text-gray-500 mb-1">Off-Peak</p>
-                              <p className="text-lg font-semibold text-gray-900">{latestClient.offPeakClients || 0}</p>
-                            </div>
-                            <div className="bg-white p-3">
-                              <p className="text-xs text-gray-500 mb-1">Peak-Time</p>
-                              <p className="text-lg font-semibold text-gray-900">{latestClient.peakTimeClients || 0}</p>
+                          </div>
+                          <div className="bg-white rounded-md shadow-sm overflow-hidden mt-4">
+                            <div className="grid grid-cols-2 gap-px bg-gray-200">
+                              <div className="bg-white p-3">
+                                <p className="text-xs text-gray-500 mb-1">Online Vouchers</p>
+                                <p className="text-lg font-semibold text-gray-900">{latestClient.onlineVouchersAmount || 0}</p>
+                              </div>
+                              <div className="bg-white p-3">
+                                <p className="text-xs text-gray-500 mb-1">Online Vouchers Total</p>
+                                <p className="text-lg font-semibold text-gray-900">£{latestClient.onlineVouchersTotal || 0}</p>
+                              </div>
+                              <div className="bg-white p-3">
+                                <p className="text-xs text-gray-500 mb-1">Paper Vouchers</p>
+                                <p className="text-lg font-semibold text-gray-900">{latestClient.paperVouchersAmount || 0}</p>
+                              </div>
+                              <div className="bg-white p-3">
+                                <p className="text-xs text-gray-500 mb-1">Paper Vouchers Total</p>
+                                <p className="text-lg font-semibold text-gray-900">£{latestClient.paperVouchersTotal || 0}</p>
+                              </div>
                             </div>
                           </div>
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Sales Information */}
-                  <div className="bg-gray-50 p-6 rounded-lg">
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">Sales Information</h3>
-                    <div className="space-y-6">
-                      <div className="bg-white p-4 rounded-md shadow-sm">
-                        <p className="text-sm font-medium text-gray-700 mb-2">Total Sales</p>
-                        <p className="text-2xl font-semibold text-blue-700">
-                          £{(latestClient.soldVouchersTotal || 0) + (latestClient.soldMembershipsTotal || 0)}
-                        </p>
-                      </div>
-                      
-                      <div>
-                        <h4 className="text-md font-medium text-gray-700 mb-3">Sales Breakdown</h4>
-                        <div className="bg-white rounded-md shadow-sm overflow-hidden">
-                          <div className="grid grid-cols-2 gap-px bg-gray-200">
-                            <div className="bg-white p-3">
-                              <p className="text-xs text-gray-500 mb-1">Vouchers Sold</p>
-                              <p className="text-lg font-semibold text-gray-900">{latestClient.soldVouchersAmount || 0}</p>
+                    {/* Transactions */}
+                    <div className="bg-gray-50 p-6 rounded-lg">
+                      <h3 className="text-lg font-medium text-gray-900 mb-4">Transactions</h3>
+                      <div className="space-y-6">
+                        <div className="bg-white p-4 rounded-md shadow-sm">
+                          <p className="text-sm font-medium text-gray-700 mb-2">Total Transactions</p>
+                          <p className="text-2xl font-semibold text-green-700">
+                            £{(latestClient.yottaLinksTotal || 0) + (latestClient.digitalBillTotal || 0)}
+                          </p>
+                        </div>
+                        
+                        <div>
+                          <h4 className="text-md font-medium text-gray-700 mb-3">Transaction Breakdown</h4>
+                          <div className="bg-white rounded-md shadow-sm overflow-hidden">
+                            <div className="grid grid-cols-2 gap-px bg-gray-200">
+                              <div className="bg-white p-3">
+                                <p className="text-xs text-gray-500 mb-1">Yotta Link</p>
+                                <p className="text-lg font-semibold text-gray-900">{latestClient.yottaLinksAmount || 0}</p>
+                              </div>
+                              <div className="bg-white p-3">
+                                <p className="text-xs text-gray-500 mb-1">Yotta Link Total</p>
+                                <p className="text-lg font-semibold text-gray-900">£{latestClient.yottaLinksTotal || 0}</p>
+                              </div>
+                              <div className="bg-white p-3">
+                                <p className="text-xs text-gray-500 mb-1">Yotta Widget</p>
+                                <p className="text-lg font-semibold text-gray-900">{latestClient.yottaWidgetAmount || 0}</p>
+                              </div>
+                              <div className="bg-white p-3">
+                                <p className="text-xs text-gray-500 mb-1">Yotta Widget Total</p>
+                                <p className="text-lg font-semibold text-gray-900">£{latestClient.yottaWidgetTotal || 0}</p>
+                              </div>
                             </div>
-                            <div className="bg-white p-3">
-                              <p className="text-xs text-gray-500 mb-1">Vouchers Total</p>
-                              <p className="text-lg font-semibold text-gray-900">£{latestClient.soldVouchersTotal || 0}</p>
-                            </div>
-                            <div className="bg-white p-3">
-                              <p className="text-xs text-gray-500 mb-1">Memberships Sold</p>
-                              <p className="text-lg font-semibold text-gray-900">{latestClient.soldMembershipsAmount || 0}</p>
-                            </div>
-                            <div className="bg-white p-3">
-                              <p className="text-xs text-gray-500 mb-1">Memberships Total</p>
-                              <p className="text-lg font-semibold text-gray-900">£{latestClient.soldMembershipsTotal || 0}</p>
+                          </div>
+                          <div className="bg-white rounded-md shadow-sm overflow-hidden mt-4">
+                            <div className="grid grid-cols-2 gap-px bg-gray-200">
+                              <div className="bg-white p-3">
+                                <p className="text-xs text-gray-500 mb-1">Digital Bill</p>
+                                <p className="text-lg font-semibold text-gray-900">{latestClient.digitalBillAmount || 0}</p>
+                              </div>
+                              <div className="bg-white p-3">
+                                <p className="text-xs text-gray-500 mb-1">Digital Bill Total</p>
+                                <p className="text-lg font-semibold text-gray-900">£{latestClient.digitalBillTotal || 0}</p>
+                              </div>
                             </div>
                           </div>
                         </div>
