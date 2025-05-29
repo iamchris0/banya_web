@@ -27,6 +27,7 @@ interface JwtPayload {
   id: number;
   username: string;
   role: UserRole;
+  exp: number; // Add expiration time to the payload interface
 }
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -37,11 +38,31 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   });
   const navigate = useNavigate();
 
+  // Check token expiration
+  const checkTokenExpiration = (token: string): boolean => {
+    try {
+      const decoded: JwtPayload = jwtDecode(token);
+      const currentTime = Math.floor(Date.now() / 1000);
+      return decoded.exp > currentTime;
+    } catch {
+      return false;
+    }
+  };
+
   // Restore auth state from token on initial load
   useEffect(() => {
     const storedToken = localStorage.getItem('authToken');
     if (storedToken) {
       try {
+        if (!checkTokenExpiration(storedToken)) {
+          // Token is expired, clear it
+          localStorage.removeItem('authToken');
+          setToken(null);
+          setAuthState(initialState);
+          navigate('/login');
+          return;
+        }
+
         const decoded: JwtPayload = jwtDecode(storedToken);
         setAuthState({
           user: { username: decoded.username, role: decoded.role },
@@ -52,9 +73,25 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         // If token is invalid, clear it
         localStorage.removeItem('authToken');
         setToken(null);
+        setAuthState(initialState);
+        navigate('/login');
       }
     }
-  }, []);
+  }, [navigate]);
+
+  // Set up token expiration check interval
+  useEffect(() => {
+    if (token) {
+      const checkInterval = setInterval(() => {
+        if (!checkTokenExpiration(token)) {
+          // Token is expired, logout
+          logout();
+        }
+      }, 60000); // Check every minute
+
+      return () => clearInterval(checkInterval);
+    }
+  }, [token]);
 
   const login = async (username: string, password: string): Promise<{ success: boolean; role?: UserRole }> => {
     try {

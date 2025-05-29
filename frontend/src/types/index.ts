@@ -1,5 +1,9 @@
 export type UserRole = 'admin' | 'head' | 'boss';
-export type Status = 'pending' | 'edited' | 'Confirmed';
+export type StatusType = 'pending' | 'edited' | 'Confirmed';
+export type Status = {
+  survey: StatusType;
+  headData: StatusType;
+};
 
 export interface User {
   username: string;
@@ -37,6 +41,19 @@ export interface ClientInfo {
   yottaWidgetTotal: number;
   digitalBillAmount: number;
   digitalBillTotal: number;
+  foodAndDrinkSales?: number;
+  treatments?: {
+    entryOnly: { done: boolean; amount: number };
+    parenie: { done: boolean; amount: number };
+    aromaPark: { done: boolean; amount: number };
+    iceWrap: { done: boolean; amount: number };
+    scrub: { done: boolean; amount: number };
+    mudMask: { done: boolean; amount: number };
+    mudWrap: { done: boolean; amount: number };
+    aloeVera: { done: boolean; amount: number };
+    massage_25: { done: boolean; amount: number };
+    massage_50: { done: boolean; amount: number };
+  };
   staffBonus: number;
   onDeskBonus: number;
   voucherSalesBonus: number;
