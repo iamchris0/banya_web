@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import Card from '../components/common/Card';
 import SurveyModal from './AddInformationPage';
-import { ClientInfo, Status } from '../types';
+import { ClientInfo } from '../types';
 import { FaArrowLeft, FaArrowRight, FaRegEdit, FaCheck } from 'react-icons/fa';
 
 const DailyDataPage: React.FC = () => {
@@ -143,7 +143,7 @@ const DailyDataPage: React.FC = () => {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ isVerified: true, status: 'Confirmed' as Status }),
+        body: JSON.stringify({ isVerified: true, verifyType: 'survey' }),
       });
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -218,9 +218,9 @@ const DailyDataPage: React.FC = () => {
                 <div className="flex justify-between items-center">
                   <div className="flex-1">
                     <span
-                      className={`inline-block px-4 py-1 rounded-full text-sm font-medium pl-4 ${getStatusColor(latestClient.status)}`}
+                      className={`inline-block px-4 py-1 rounded-full text-sm font-medium pl-4 ${getStatusColor(latestClient.status.survey)}`}
                     >
-                      Status: {latestClient.status.charAt(0).toUpperCase() + latestClient.status.slice(1)}
+                      Status: {latestClient.status.survey.charAt(0).toUpperCase() + latestClient.status.survey.slice(1)}
                     </span>
                   </div>
                   <div className="flex space-x-2 ml-4">
@@ -237,12 +237,12 @@ const DailyDataPage: React.FC = () => {
                           <button
                             onClick={() => handleConfirm(latestClient)}
                             className={`p-2 transition-colors ${
-                              latestClient.id && latestClient.status === 'edited'
+                              latestClient.id && latestClient.status.survey === 'edited'
                                 ? 'text-green-700 hover:text-green-900'
                                 : 'text-gray-400 cursor-not-allowed'
                             }`}
                             title="Confirm Survey"
-                            disabled={!latestClient.id || latestClient.status !== 'edited'}
+                            disabled={!latestClient.id || latestClient.status.survey !== 'edited'}
                           >
                             <FaCheck size={20} />
                           </button>
@@ -265,26 +265,23 @@ const DailyDataPage: React.FC = () => {
                           <p className="text-2xl font-semibold text-purple-700">{latestClient.amountOfPeople || 0}</p>
                         </div>
                         
-                        <div>
-                          <h4 className="text-md font-medium text-gray-700 mb-3">Visitor Distribution</h4>
-                          <div className="bg-white rounded-md shadow-sm overflow-hidden">
-                            <div className="grid grid-cols-2 gap-px bg-gray-200">
-                              <div className="bg-white p-3">
-                                <p className="text-xs text-gray-500 mb-1">Total</p>
-                                <p className="text-lg font-semibold text-gray-900">{latestClient.amountOfPeople || 0}</p>
-                              </div>
-                              <div className="bg-white p-3">
-                                <p className="text-xs text-gray-500 mb-1">New Clients</p>
-                                <p className="text-lg font-semibold text-gray-900">{latestClient.newClients || 0}</p>
-                              </div>
-                              <div className="bg-white p-3">
-                                <p className="text-xs text-gray-500 mb-1">Male</p>
-                                <p className="text-lg font-semibold text-gray-900">{latestClient.male || 0}</p>
-                              </div>
-                              <div className="bg-white p-3">
-                                <p className="text-xs text-gray-500 mb-1">Female</p>
-                                <p className="text-lg font-semibold text-gray-900">{latestClient.female || 0}</p>
-                              </div>
+                        <div className="bg-white rounded-md shadow-sm overflow-hidden">
+                          <div className="grid grid-cols-2 gap-px bg-gray-200">
+                            <div className="bg-white p-3">
+                              <p className="text-xs text-gray-500 mb-1">Total</p>
+                              <p className="text-lg font-semibold text-gray-900">{latestClient.amountOfPeople || 0}</p>
+                            </div>
+                            <div className="bg-white p-3">
+                              <p className="text-xs text-gray-500 mb-1">New Clients</p>
+                              <p className="text-lg font-semibold text-gray-900">{latestClient.newClients || 0}</p>
+                            </div>
+                            <div className="bg-white p-3">
+                              <p className="text-xs text-gray-500 mb-1">Male</p>
+                              <p className="text-lg font-semibold text-gray-900">{latestClient.male || 0}</p>
+                            </div>
+                            <div className="bg-white p-3">
+                              <p className="text-xs text-gray-500 mb-1">Female</p>
+                              <p className="text-lg font-semibold text-gray-900">{latestClient.female || 0}</p>
                             </div>
                           </div>
                         </div>
@@ -302,26 +299,23 @@ const DailyDataPage: React.FC = () => {
                           </p>
                         </div>
                         
-                        <div>
-                          <h4 className="text-md font-medium text-gray-700 mb-3">Language Distribution</h4>
-                          <div className="bg-white rounded-md shadow-sm overflow-hidden">
-                            <div className="grid grid-cols-2 gap-px bg-gray-200">
-                              <div className="bg-white p-3">
-                                <p className="text-xs text-gray-500 mb-1">English Speaking</p>
-                                <p className="text-lg font-semibold text-gray-900">{latestClient.englishSpeaking || 0}</p>
-                              </div>
-                              <div className="bg-white p-3">
-                                <p className="text-xs text-gray-500 mb-1">Russian Speaking</p>
-                                <p className="text-lg font-semibold text-gray-900">{latestClient.russianSpeaking || 0}</p>
-                              </div>
-                              <div className="bg-white p-3">
-                                <p className="text-xs text-gray-500 mb-1">Off-Peak</p>
-                                <p className="text-lg font-semibold text-gray-900">{latestClient.offPeakClients || 0}</p>
-                              </div>
-                              <div className="bg-white p-3">
-                                <p className="text-xs text-gray-500 mb-1">Peak-Time</p>
-                                <p className="text-lg font-semibold text-gray-900">{latestClient.peakTimeClients || 0}</p>
-                              </div>
+                        <div className="bg-white rounded-md shadow-sm overflow-hidden">
+                          <div className="grid grid-cols-2 gap-px bg-gray-200">
+                            <div className="bg-white p-3">
+                              <p className="text-xs text-gray-500 mb-1">English Speaking</p>
+                              <p className="text-lg font-semibold text-gray-900">{latestClient.englishSpeaking || 0}</p>
+                            </div>
+                            <div className="bg-white p-3">
+                              <p className="text-xs text-gray-500 mb-1">Russian Speaking</p>
+                              <p className="text-lg font-semibold text-gray-900">{latestClient.russianSpeaking || 0}</p>
+                            </div>
+                            <div className="bg-white p-3">
+                              <p className="text-xs text-gray-500 mb-1">Off-Peak</p>
+                              <p className="text-lg font-semibold text-gray-900">{latestClient.offPeakClients || 0}</p>
+                            </div>
+                            <div className="bg-white p-3">
+                              <p className="text-xs text-gray-500 mb-1">Peak-Time</p>
+                              <p className="text-lg font-semibold text-gray-900">{latestClient.peakTimeClients || 0}</p>
                             </div>
                           </div>
                         </div>
@@ -336,13 +330,7 @@ const DailyDataPage: React.FC = () => {
                       <h3 className="text-lg font-medium text-gray-900 mb-4">Sales Information</h3>
                       <div className="space-y-6">
                         <div className="bg-white p-4 rounded-md shadow-sm">
-                          <p className="text-sm font-medium text-gray-700 mb-2">Total Sales</p>
-                          <p className="text-2xl font-semibold text-blue-700">
-                            £{(latestClient.onlineMembershipsTotal || 0) + 
-                               (latestClient.offlineMembershipsTotal || 0) + 
-                               (latestClient.onlineVouchersTotal || 0) + 
-                               (latestClient.paperVouchersTotal || 0)}
-                          </p>
+                          <p className="text-2xl font-semibold text-blue-700">£{(latestClient.onlineMembershipsTotal || 0) + (latestClient.offlineMembershipsTotal || 0) + (latestClient.onlineVouchersTotal || 0) + (latestClient.paperVouchersTotal || 0)} Total</p>
                         </div>
                         
                         <div>
@@ -396,10 +384,7 @@ const DailyDataPage: React.FC = () => {
                       <h3 className="text-lg font-medium text-gray-900 mb-4">Transactions</h3>
                       <div className="space-y-6">
                         <div className="bg-white p-4 rounded-md shadow-sm">
-                          <p className="text-sm font-medium text-gray-700 mb-2">Total Transactions</p>
-                          <p className="text-2xl font-semibold text-green-700">
-                            £{(latestClient.yottaLinksTotal || 0) + (latestClient.digitalBillTotal || 0)}
-                          </p>
+                          <p className="text-2xl font-semibold text-green-700">£{(latestClient.yottaLinksTotal || 0) + (latestClient.digitalBillTotal || 0)} Total</p>
                         </div>
                         
                         <div>

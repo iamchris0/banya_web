@@ -78,14 +78,20 @@ app.post('/api/clients', authenticateToken, restrictToRoles(['admin']), (req, re
     offPeakClients,
     peakTimeClients,
     newClients,
-    soldVouchersAmount,
-    soldVouchersTotal,
-    soldMembershipsAmount,
-    soldMembershipsTotal,
-    yottaDepositsAmount,
-    yottaDepositsTotal,
+    onlineMembershipsAmount,
+    onlineMembershipsTotal,
+    offlineMembershipsAmount,
+    offlineMembershipsTotal,
+    onlineVouchersAmount,
+    onlineVouchersTotal,
+    paperVouchersAmount,
+    paperVouchersTotal,
     yottaLinksAmount,
     yottaLinksTotal,
+    yottaWidgetAmount,
+    yottaWidgetTotal,
+    digitalBillAmount,
+    digitalBillTotal,
     date,
   } = req.body;
 
@@ -104,18 +110,40 @@ app.post('/api/clients', authenticateToken, restrictToRoles(['admin']), (req, re
     offPeakClients: Number(offPeakClients) || 0,
     peakTimeClients: Number(peakTimeClients) || 0,
     newClients: Number(newClients) || 0,
-    soldVouchersAmount: Number(soldVouchersAmount) || 0,
-    soldVouchersTotal: Number(soldVouchersTotal) || 0,
-    soldMembershipsAmount: Number(soldMembershipsAmount) || 0,
-    soldMembershipsTotal: Number(soldMembershipsTotal) || 0,
-    yottaDepositsAmount: Number(yottaDepositsAmount) || 0,
-    yottaDepositsTotal: Number(yottaDepositsTotal) || 0,
+    onlineMembershipsAmount: Number(onlineMembershipsAmount) || 0,
+    onlineMembershipsTotal: Number(onlineMembershipsTotal) || 0,
+    offlineMembershipsAmount: Number(offlineMembershipsAmount) || 0,
+    offlineMembershipsTotal: Number(offlineMembershipsTotal) || 0,
+    onlineVouchersAmount: Number(onlineVouchersAmount) || 0,
+    onlineVouchersTotal: Number(onlineVouchersTotal) || 0,
+    paperVouchersAmount: Number(paperVouchersAmount) || 0,
+    paperVouchersTotal: Number(paperVouchersTotal) || 0,
     yottaLinksAmount: Number(yottaLinksAmount) || 0,
     yottaLinksTotal: Number(yottaLinksTotal) || 0,
+    yottaWidgetAmount: Number(yottaWidgetAmount) || 0,
+    yottaWidgetTotal: Number(yottaWidgetTotal) || 0,
+    digitalBillAmount: Number(digitalBillAmount) || 0,
+    digitalBillTotal: Number(digitalBillTotal) || 0,
+    foodAndDrinkSales: 0,
+    treatments: {
+      entryOnly: { done: false, amount: 0 },
+      parenie: { done: false, amount: 0 },
+      aromaPark: { done: false, amount: 0 },
+      iceWrap: { done: false, amount: 0 },
+      scrub: { done: false, amount: 0 },
+      mudMask: { done: false, amount: 0 },
+      mudWrap: { done: false, amount: 0 },
+      aloeVera: { done: false, amount: 0 },
+      massage_25: { done: false, amount: 0 },
+      massage_50: { done: false, amount: 0 }
+    },
     date,
     createdBy: req.user.username,
     isVerified: false,
-    status: 'edited'
+    status: {
+      survey: 'edited',
+      headData: 'edited'
+    }
   };
 
   clients.push(client);
@@ -135,14 +163,22 @@ app.put('/api/clients/:id', authenticateToken, restrictToRoles(['admin', 'head']
     offPeakClients,
     peakTimeClients,
     newClients,
-    soldVouchersAmount,
-    soldVouchersTotal,
-    soldMembershipsAmount,
-    soldMembershipsTotal,
-    yottaDepositsAmount,
-    yottaDepositsTotal,
+    onlineMembershipsAmount,
+    onlineMembershipsTotal,
+    offlineMembershipsAmount,
+    offlineMembershipsTotal,
+    onlineVouchersAmount,
+    onlineVouchersTotal,
+    paperVouchersAmount,
+    paperVouchersTotal,
     yottaLinksAmount,
     yottaLinksTotal,
+    yottaWidgetAmount,
+    yottaWidgetTotal,
+    digitalBillAmount,
+    digitalBillTotal,
+    foodAndDrinkSales,
+    treatments,
     date,
   } = req.body;
 
@@ -155,6 +191,12 @@ app.put('/api/clients/:id', authenticateToken, restrictToRoles(['admin', 'head']
     return res.status(400).json({ message: 'Missing required fields: Amount Of People or Date' });
   }
 
+  // Determine which part was updated
+  const isHeadDataUpdate = req.user.role === 'head' && 
+    (foodAndDrinkSales !== undefined || treatments !== undefined);
+  const isSurveyUpdate = req.user.role === 'admin' || 
+    (req.user.role === 'head' && !isHeadDataUpdate);
+
   const updatedClient = {
     ...clients[clientIndex],
     amountOfPeople: Number(amountOfPeople) || 0,
@@ -166,17 +208,29 @@ app.put('/api/clients/:id', authenticateToken, restrictToRoles(['admin', 'head']
     offPeakClients: Number(offPeakClients) || 0,
     peakTimeClients: Number(peakTimeClients) || 0,
     newClients: Number(newClients) || 0,
-    soldVouchersAmount: Number(soldVouchersAmount) || 0,
-    soldVouchersTotal: Number(soldVouchersTotal) || 0,
-    soldMembershipsAmount: Number(soldMembershipsAmount) || 0,
-    soldMembershipsTotal: Number(soldMembershipsTotal) || 0,
-    yottaDepositsAmount: Number(yottaDepositsAmount) || 0,
-    yottaDepositsTotal: Number(yottaDepositsTotal) || 0,
+    onlineMembershipsAmount: Number(onlineMembershipsAmount) || 0,
+    onlineMembershipsTotal: Number(onlineMembershipsTotal) || 0,
+    offlineMembershipsAmount: Number(offlineMembershipsAmount) || 0,
+    offlineMembershipsTotal: Number(offlineMembershipsTotal) || 0,
+    onlineVouchersAmount: Number(onlineVouchersAmount) || 0,
+    onlineVouchersTotal: Number(onlineVouchersTotal) || 0,
+    paperVouchersAmount: Number(paperVouchersAmount) || 0,
+    paperVouchersTotal: Number(paperVouchersTotal) || 0,
     yottaLinksAmount: Number(yottaLinksAmount) || 0,
     yottaLinksTotal: Number(yottaLinksTotal) || 0,
+    yottaWidgetAmount: Number(yottaWidgetAmount) || 0,
+    yottaWidgetTotal: Number(yottaWidgetTotal) || 0,
+    digitalBillAmount: Number(digitalBillAmount) || 0,
+    digitalBillTotal: Number(digitalBillTotal) || 0,
+    foodAndDrinkSales: Number(foodAndDrinkSales) || 0,
+    treatments: treatments || clients[clientIndex].treatments,
     date,
     isVerified: false,
-    status: 'edited'
+    status: {
+      ...clients[clientIndex].status,
+      survey: isSurveyUpdate ? 'edited' : clients[clientIndex].status.survey,
+      headData: isHeadDataUpdate ? 'edited' : clients[clientIndex].status.headData
+    }
   };
 
   clients[clientIndex] = updatedClient;
@@ -186,7 +240,7 @@ app.put('/api/clients/:id', authenticateToken, restrictToRoles(['admin', 'head']
 // Verify client information
 app.patch('/api/clients/:id/verify', authenticateToken, restrictToRoles(['head']), (req, res) => {
   const { id } = req.params;
-  const { isVerified } = req.body;
+  const { isVerified, verifyType } = req.body;
 
   const clientIndex = clients.findIndex(client => client.id === Number(id));
   if (clientIndex === -1) {
@@ -197,9 +251,12 @@ app.patch('/api/clients/:id/verify', authenticateToken, restrictToRoles(['head']
     return res.status(400).json({ message: 'Invalid isVerified value' });
   }
 
-  clients[clientIndex].isVerified = isVerified;
-  clients[clientIndex].status = isVerified ? 'Confirmed' : 'edited';
-  res.json({ message: 'Invoice verification status updated', client: clients[clientIndex] });
+  if (!verifyType || !['survey', 'headData'].includes(verifyType)) {
+    return res.status(400).json({ message: 'Invalid verifyType. Must be either "survey" or "headData"' });
+  }
+
+  clients[clientIndex].status[verifyType] = isVerified ? 'Confirmed' : 'edited';
+  res.json({ message: 'Client verification status updated', client: clients[clientIndex] });
 });
 
 // Get all clients
