@@ -4,6 +4,8 @@ import Card from '../components/common/Card';
 import SurveyModal from './AddInformationPage';
 import { ClientInfo } from '../types';
 import { FaArrowLeft, FaArrowRight, FaRegEdit, FaCheck } from 'react-icons/fa';
+import DatePicker from 'react-datepicker';
+import "react-datepicker/dist/react-datepicker.css";
 
 const DailyDataPage: React.FC = () => {
   const { token, user } = useAuth();
@@ -15,6 +17,7 @@ const DailyDataPage: React.FC = () => {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [direction, setDirection] = useState<'left' | 'right' | null>(null);
   const pollingIntervalRef = useRef<number>();
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
   const fetchClients = async () => {
     if (!token) {
@@ -93,15 +96,6 @@ const DailyDataPage: React.FC = () => {
     const nextDate = new Date(selectedDate);
     nextDate.setDate(nextDate.getDate() + 1);
     
-    // Check if the next date is more than 1 day ahead of current date
-    const today = new Date();
-    const maxAllowedDate = new Date(today);
-    maxAllowedDate.setDate(maxAllowedDate.getDate() + 1);
-    
-    if (nextDate > maxAllowedDate) {
-      return; // Don't allow navigation beyond tomorrow
-    }
-    
     setIsTransitioning(true);
     setDirection('right');
     setTimeout(() => {
@@ -113,13 +107,12 @@ const DailyDataPage: React.FC = () => {
 
   const canNavigateToNextDay = (date: Date) => {
     const today = new Date();
-    const maxAllowedDate = new Date(today);
-    maxAllowedDate.setDate(maxAllowedDate.getDate() + 1);
+    today.setHours(0, 0, 0, 0); // Reset time to start of day
     
     const nextDate = new Date(date);
     nextDate.setDate(nextDate.getDate() + 1);
-    
-    return nextDate <= maxAllowedDate;
+    nextDate.setHours(0, 0, 0, 0);
+    return nextDate <= today;
   };
 
   const handleEdit = (client: ClientInfo) => {
@@ -178,6 +171,18 @@ const DailyDataPage: React.FC = () => {
   const filteredClients = filterClientsByDate(clients, selectedDate);
   const latestClient = filteredClients[0];
 
+  const handleDateChange = (date: Date | null) => {
+    if (!date) return;
+    setIsTransitioning(true);
+    setDirection('left');
+    setTimeout(() => {
+      setSelectedDate(date);
+      setIsTransitioning(false);
+      setDirection(null);
+      setIsDatePickerOpen(false);
+    }, 200);
+  };
+
   return (
     <div className="flex flex-col h-full bg-gray-50 text-gray-800 p-6">
       <div className="flex-grow w-full max-w-7xl mx-auto">
@@ -186,7 +191,25 @@ const DailyDataPage: React.FC = () => {
           <button onClick={handlePrevDay} className="p-2 text-gray-800 hover:text-green-900">
             <FaArrowLeft size={20} />
           </button>
-          <span className="text-xl font-medium">{formatDate(selectedDate)}</span>
+          <div className="relative">
+            <button
+              onClick={() => setIsDatePickerOpen(!isDatePickerOpen)}
+              className="text-xl font-medium hover:text-green-900 transition-colors"
+            >
+              {formatDate(selectedDate)}
+            </button>
+            {isDatePickerOpen && (
+              <div className="absolute z-10 mt-2">
+                <DatePicker
+                  selected={selectedDate}
+                  onChange={handleDateChange}
+                  inline
+                  maxDate={new Date()}
+                  dateFormat="dd/MM/yyyy"
+                />
+              </div>
+            )}
+          </div>
           {canNavigateToNextDay(selectedDate) && (
             <button onClick={handleNextDay} className="p-2 text-gray-800 hover:text-green-900">
               <FaArrowRight size={20} />
@@ -384,7 +407,7 @@ const DailyDataPage: React.FC = () => {
                       <h3 className="text-lg font-medium text-gray-900 mb-4">Transactions</h3>
                       <div className="space-y-6">
                         <div className="bg-white p-4 rounded-md shadow-sm">
-                          <p className="text-2xl font-semibold text-green-700">£{(latestClient.yottaLinksTotal || 0) + (latestClient.digitalBillTotal || 0)} Total</p>
+                          <p className="text-2xl font-semibold text-green-700">£{(latestClient.yottaLinksTotal || 0)} Total</p>
                         </div>
                         
                         <div>
@@ -409,18 +432,6 @@ const DailyDataPage: React.FC = () => {
                               </div>
                             </div>
                           </div>
-                          <div className="bg-white rounded-md shadow-sm overflow-hidden mt-4">
-                            <div className="grid grid-cols-2 gap-px bg-gray-200">
-                              <div className="bg-white p-3">
-                                <p className="text-xs text-gray-500 mb-1">Digital Bill</p>
-                                <p className="text-lg font-semibold text-gray-900">{latestClient.digitalBillAmount || 0}</p>
-                              </div>
-                              <div className="bg-white p-3">
-                                <p className="text-xs text-gray-500 mb-1">Digital Bill Total</p>
-                                <p className="text-lg font-semibold text-gray-900">£{latestClient.digitalBillTotal || 0}</p>
-                              </div>
-                            </div>
-                          </div>
                         </div>
                       </div>
                     </div>
@@ -442,7 +453,7 @@ const DailyDataPage: React.FC = () => {
       </div>
 
       {/* Floating "+" Button - Only for admin */}
-      {user?.role === 'admin' && (
+      {user?.role === 'admin' && !latestClient && (
         <button
           onClick={() => setIsModalOpen(true)}
           className="fixed bottom-6 right-6 bg-green-900 text-white w-14 h-14 rounded-full flex items-center justify-center text-2xl hover:bg-green-800 transition-colors shadow-lg"

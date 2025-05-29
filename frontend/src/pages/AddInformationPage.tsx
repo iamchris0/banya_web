@@ -41,8 +41,6 @@ const SurveyModal: React.FC<SurveyModalProps> = ({ isOpen, onClose, onSubmitSucc
     yottaLinksTotal: 0,
     yottaWidgetAmount: 0,
     yottaWidgetTotal: 0,
-    digitalBillAmount: 0,
-    digitalBillTotal: 0,
     createdBy: user?.username || '',
   };
 
@@ -128,8 +126,6 @@ const SurveyModal: React.FC<SurveyModalProps> = ({ isOpen, onClose, onSubmitSucc
           paperVouchersTotal: parseInt(String(formData.paperVouchersTotal) || '0'),
           yottaLinksAmount: parseInt(String(formData.yottaLinksAmount) || '0'),
           yottaLinksTotal: parseInt(String(formData.yottaLinksTotal) || '0'),
-          digitalBillAmount: parseInt(String(formData.digitalBillAmount) || '0'),
-          digitalBillTotal: parseInt(String(formData.digitalBillTotal) || '0'),
           date: new Date().toISOString().split('T')[0],
           createdBy: user.username,
           status: initialData?.id 
@@ -404,22 +400,6 @@ const SurveyModal: React.FC<SurveyModalProps> = ({ isOpen, onClose, onSubmitSucc
                           type="number"
                           name="yottaWidgetTotal"
                           value={formData.yottaWidgetTotal}
-                          onChange={handleChange}
-                          min="0"
-                        />
-                        <Input
-                          label="Digital Bill"
-                          type="number"
-                          name="digitalBillAmount"
-                          value={formData.digitalBillAmount}
-                          onChange={handleChange}
-                          min="0"
-                        />
-                        <Input
-                          label="Digital Bill Total (£)"
-                          type="number"
-                          name="digitalBillTotal"
-                          value={formData.digitalBillTotal}
                           onChange={handleChange}
                           min="0"
                         />

@@ -13,8 +13,8 @@ app.use(bodyParser.json());
 
 // Hardcoded admin user
 const users = [
-  { id: 1, username: 'reception', password: '123', role: 'admin' },
-  { id: 2, username: 'general operation', password: '123', role: 'head' },
+  { id: 1, username: 'admin', password: '123', role: 'admin' },
+  { id: 2, username: 'head', password: '123', role: 'head' },
   { id: 3, username: 'elena', password: '123', role: 'boss' },
   { id: 4, username: 'ksenia', password: '123', role: 'boss' },
 ];
@@ -39,7 +39,7 @@ const authenticateToken = (req, res, next) => {
   jwt.verify(token, SECRET_KEY, (err, user) => {
     if (err) {
       console.error('Token verification error:', err);
-      return res.status(403).json({ message: 'Invalid token' });
+      return res.status(403).json({ message: 'Invalid token. Please relogin.' });
     }
     req.user = user;
     next();
@@ -90,8 +90,6 @@ app.post('/api/clients', authenticateToken, restrictToRoles(['admin']), (req, re
     yottaLinksTotal,
     yottaWidgetAmount,
     yottaWidgetTotal,
-    digitalBillAmount,
-    digitalBillTotal,
     date,
   } = req.body;
 
@@ -122,8 +120,6 @@ app.post('/api/clients', authenticateToken, restrictToRoles(['admin']), (req, re
     yottaLinksTotal: Number(yottaLinksTotal) || 0,
     yottaWidgetAmount: Number(yottaWidgetAmount) || 0,
     yottaWidgetTotal: Number(yottaWidgetTotal) || 0,
-    digitalBillAmount: Number(digitalBillAmount) || 0,
-    digitalBillTotal: Number(digitalBillTotal) || 0,
     foodAndDrinkSales: 0,
     treatments: {
       entryOnly: { done: false, amount: 0 },
@@ -175,11 +171,12 @@ app.put('/api/clients/:id', authenticateToken, restrictToRoles(['admin', 'head']
     yottaLinksTotal,
     yottaWidgetAmount,
     yottaWidgetTotal,
-    digitalBillAmount,
-    digitalBillTotal,
     foodAndDrinkSales,
     treatments,
     date,
+    weeklyData,
+    dailyPreBooked,
+    dailyPreBookedPeople,
   } = req.body;
 
   const clientIndex = clients.findIndex(client => client.id === Number(id));
@@ -193,7 +190,7 @@ app.put('/api/clients/:id', authenticateToken, restrictToRoles(['admin', 'head']
 
   // Determine which part was updated
   const isHeadDataUpdate = req.user.role === 'head' && 
-    (foodAndDrinkSales !== undefined || treatments !== undefined);
+    (foodAndDrinkSales !== undefined || treatments !== undefined || weeklyData !== undefined);
   const isSurveyUpdate = req.user.role === 'admin' || 
     (req.user.role === 'head' && !isHeadDataUpdate);
 
@@ -219,11 +216,12 @@ app.put('/api/clients/:id', authenticateToken, restrictToRoles(['admin', 'head']
     yottaLinksAmount: Number(yottaLinksAmount) || 0,
     yottaLinksTotal: Number(yottaLinksTotal) || 0,
     yottaWidgetAmount: Number(yottaWidgetAmount) || 0,
-    yottaWidgetTotal: Number(yottaWidgetTotal) || 0,
-    digitalBillAmount: Number(digitalBillAmount) || 0,
-    digitalBillTotal: Number(digitalBillTotal) || 0,
+    yottaWidgetTotal: Number(yottaWidgetTotal) || 0,  
     foodAndDrinkSales: Number(foodAndDrinkSales) || 0,
     treatments: treatments || clients[clientIndex].treatments,
+    weeklyData: weeklyData || clients[clientIndex].weeklyData,
+    dailyPreBooked: dailyPreBooked || clients[clientIndex].dailyPreBooked,
+    dailyPreBookedPeople: dailyPreBookedPeople || clients[clientIndex].dailyPreBookedPeople,
     date,
     isVerified: false,
     status: {
@@ -444,6 +442,52 @@ app.get('/api/active-users', authenticateToken, (req, res) => {
     activeUsers: Array.from(pageUsers),
     count: pageUsers.size
   });
+});
+
+// Add new endpoint for updating daily prebooked data
+app.patch('/api/clients/:id/daily-prebooked', authenticateToken, restrictToRoles(['admin', 'head']), (req, res) => {
+  const { id } = req.params;
+  const { day, value, type } = req.body;
+
+  if (!day || value === undefined || !type) {
+    return res.status(400).json({ message: 'Missing required fields: day, value, or type' });
+  }
+
+  const clientIndex = clients.findIndex(client => client.id === Number(id));
+  if (clientIndex === -1) {
+    return res.status(404).json({ message: 'Client not found' });
+  }
+
+  const client = clients[clientIndex];
+  const updatedClient = { ...client };
+
+  // Initialize the dailyPreBooked object if it doesn't exist
+  if (!updatedClient.dailyPreBooked) {
+    updatedClient.dailyPreBooked = {
+      monday: { amount: 0, quantity: 0 },
+      tuesday: { amount: 0, quantity: 0 },
+      wednesday: { amount: 0, quantity: 0 },
+      thursday: { amount: 0, quantity: 0 },
+      friday: { amount: 0, quantity: 0 },
+      saturday: { amount: 0, quantity: 0 },
+      sunday: { amount: 0, quantity: 0 }
+    };
+  }
+
+  // Update the specific day's data
+  updatedClient.dailyPreBooked[day] = {
+    ...updatedClient.dailyPreBooked[day],
+    [type]: Number(value)
+  };
+
+  // Update status to indicate data has been edited
+  updatedClient.status = {
+    ...client.status,
+    survey: 'edited'
+  };
+
+  clients[clientIndex] = updatedClient;
+  res.json({ message: 'Daily prebooked data updated', client: updatedClient });
 });
 
 const server = http.createServer(app);

@@ -39,8 +39,6 @@ export interface ClientInfo {
   yottaLinksTotal: number;
   yottaWidgetAmount: number;
   yottaWidgetTotal: number;
-  digitalBillAmount: number;
-  digitalBillTotal: number;
   foodAndDrinkSales?: number;
   treatments?: {
     entryOnly: { done: boolean; amount: number };
@@ -61,13 +59,13 @@ export interface ClientInfo {
   preBookedValueNextWeek: number;
   preBookedPeopleNextWeek: number;
   dailyPreBooked?: {
-    monday: number;
-    tuesday: number;
-    wednesday: number;
-    thursday: number;
-    friday: number;
-    saturday: number;
-    sunday: number;
+    monday: { amount: number; quantity: number };
+    tuesday: { amount: number; quantity: number };
+    wednesday: { amount: number; quantity: number };
+    thursday: { amount: number; quantity: number };
+    friday: { amount: number; quantity: number };
+    saturday: { amount: number; quantity: number };
+    sunday: { amount: number; quantity: number };
   };
   dailyPreBookedPeople?: {
     monday: number;
@@ -82,4 +80,26 @@ export interface ClientInfo {
   createdBy: string;
   isVerified: boolean;
   status: Status;
+  weeklyData?: {
+    weeklyBudget: number;
+    targetSales: {
+      monday: number;
+      tuesday: number;
+      wednesday: number;
+      thursday: number;
+      friday: number;
+      saturday: number;
+      sunday: number;
+    };
+    voucherSummary: {
+      onlineVouchersAmount: number;
+      onlineVouchersTotal: number;
+      paperVouchersAmount: number;
+      paperVouchersTotal: number;
+    };
+    chiswickVouchersRedeemed: number;
+    kitchenSalary: number;
+    fAndBStock: number;
+    kitchenPnL: number;
+  };
 }
