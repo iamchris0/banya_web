@@ -429,8 +429,8 @@ const DailyDataPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Floating "+" Button - Only for admin */}
-      {user?.role === 'admin' && (
+      {/* Floating "+" Button - Only for admin and when no survey exists for the selected date */}
+      {user?.role === 'admin' && !latestClient && (
         <button
           onClick={() => setIsModalOpen(true)}
           className="fixed bottom-6 right-6 bg-green-900 text-white w-14 h-14 rounded-full flex items-center justify-center text-2xl hover:bg-green-800 transition-colors shadow-lg"

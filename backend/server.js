@@ -124,7 +124,7 @@ app.post('/api/clients', authenticateToken, restrictToRoles(['admin']), (req, re
     yottaLinksTotal: Number(yottaLinksTotal) || 0,
     yottaWidgetAmount: Number(yottaWidgetAmount) || 0,
     yottaWidgetTotal: Number(yottaWidgetTotal) || 0,
-  
+    
     foodAndDrinkSales: 0,
     dailyPreBooked: dailyPreBooked || {
       monday: 0,
