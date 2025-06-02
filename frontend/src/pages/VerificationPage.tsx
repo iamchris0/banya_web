@@ -695,7 +695,7 @@ const VerificationPage: React.FC = () => {
                                     <h3 className="text-lg font-medium text-gray-900 mb-4">Transactions</h3>
                                     <div className="space-y-6">
                                       <div className="bg-white p-4 rounded-md shadow-sm">
-                                        <p className="text-2xl font-semibold text-green-700">£{(latestClient.yottaLinksTotal || 0) + (latestClient.digitalBillTotal || 0)} Total</p>
+                                        <p className="text-2xl font-semibold text-green-700">£{(latestClient.yottaLinksTotal || 0)} Total</p>
                                       </div>
                                       
                                       <div>
@@ -717,18 +717,6 @@ const VerificationPage: React.FC = () => {
                                             <div className="bg-white p-3">
                                               <p className="text-xs text-gray-500 mb-1">Yotta Widget Total</p>
                                               <p className="text-lg font-semibold text-gray-900">£{latestClient.yottaWidgetTotal || 0}</p>
-                                            </div>
-                                          </div>
-                                        </div>
-                                        <div className="bg-white rounded-md shadow-sm overflow-hidden mt-4">
-                                          <div className="grid grid-cols-2 gap-px bg-gray-200">
-                                            <div className="bg-white p-3">
-                                              <p className="text-xs text-gray-500 mb-1">Digital Bill</p>
-                                              <p className="text-lg font-semibold text-gray-900">{latestClient.digitalBillAmount || 0}</p>
-                                            </div>
-                                            <div className="bg-white p-3">
-                                              <p className="text-xs text-gray-500 mb-1">Digital Bill Total</p>
-                                              <p className="text-lg font-semibold text-gray-900">£{latestClient.digitalBillTotal || 0}</p>
                                             </div>
                                           </div>
                                         </div>
@@ -788,6 +776,7 @@ const VerificationPage: React.FC = () => {
           }}
           onSubmitSuccess={handleSubmitSuccess}
           initialData={selectedClient}
+          selectedDate={selectedDate}
         />
       )}
     </div>

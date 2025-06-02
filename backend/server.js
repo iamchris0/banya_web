@@ -90,8 +90,6 @@ app.post('/api/clients', authenticateToken, restrictToRoles(['admin']), (req, re
     yottaLinksTotal,
     yottaWidgetAmount,
     yottaWidgetTotal,
-    digitalBillAmount,
-    digitalBillTotal,
     date,
   } = req.body;
 
@@ -122,8 +120,6 @@ app.post('/api/clients', authenticateToken, restrictToRoles(['admin']), (req, re
     yottaLinksTotal: Number(yottaLinksTotal) || 0,
     yottaWidgetAmount: Number(yottaWidgetAmount) || 0,
     yottaWidgetTotal: Number(yottaWidgetTotal) || 0,
-    digitalBillAmount: Number(digitalBillAmount) || 0,
-    digitalBillTotal: Number(digitalBillTotal) || 0,
     foodAndDrinkSales: 0,
     treatments: {
       entryOnly: { done: false, amount: 0 },
@@ -175,8 +171,6 @@ app.put('/api/clients/:id', authenticateToken, restrictToRoles(['admin', 'head']
     yottaLinksTotal,
     yottaWidgetAmount,
     yottaWidgetTotal,
-    digitalBillAmount,
-    digitalBillTotal,
     foodAndDrinkSales,
     treatments,
     date,
@@ -220,8 +214,6 @@ app.put('/api/clients/:id', authenticateToken, restrictToRoles(['admin', 'head']
     yottaLinksTotal: Number(yottaLinksTotal) || 0,
     yottaWidgetAmount: Number(yottaWidgetAmount) || 0,
     yottaWidgetTotal: Number(yottaWidgetTotal) || 0,
-    digitalBillAmount: Number(digitalBillAmount) || 0,
-    digitalBillTotal: Number(digitalBillTotal) || 0,
     foodAndDrinkSales: Number(foodAndDrinkSales) || 0,
     treatments: treatments || clients[clientIndex].treatments,
     date,

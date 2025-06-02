@@ -39,8 +39,6 @@ export interface ClientInfo {
   yottaLinksTotal: number;
   yottaWidgetAmount: number;
   yottaWidgetTotal: number;
-  digitalBillAmount: number;
-  digitalBillTotal: number;
   foodAndDrinkSales?: number;
   treatments?: {
     entryOnly: { done: boolean; amount: number };
