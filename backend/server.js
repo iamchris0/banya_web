@@ -494,7 +494,69 @@ app.get('/api/clients/weekly-summary', authenticateToken, (req, res) => {
     return clientDate >= startDate && clientDate <= endDate;
   });
 
-  // Aggregate the data
+  // Create a map for daily data
+  const dailyData = {};
+  for (let i = 0; i < 7; i++) {
+    const currentDate = new Date(startDate);
+    currentDate.setDate(currentDate.getDate() + i);
+    const formattedDate = formatDate(currentDate);
+    
+    // Filter clients for this specific day
+    const dayClients = weekClients.filter(client => {
+      const clientDate = new Date(client.date);
+      return clientDate.toDateString() === currentDate.toDateString();
+    });
+
+    dailyData[formattedDate] = {
+      visitors: dayClients.reduce((sum, client) => sum + (client.amountOfPeople || 0), 0),
+      newClients: dayClients.reduce((sum, client) => sum + (client.newClients || 0), 0),
+      male: dayClients.reduce((sum, client) => sum + (client.male || 0), 0),
+      female: dayClients.reduce((sum, client) => sum + (client.female || 0), 0),
+      englishSpeaking: dayClients.reduce((sum, client) => sum + (client.englishSpeaking || 0), 0),
+      russianSpeaking: dayClients.reduce((sum, client) => sum + (client.russianSpeaking || 0), 0),
+      offPeak: dayClients.reduce((sum, client) => sum + (client.offPeakClients || 0), 0),
+      peakTime: dayClients.reduce((sum, client) => sum + (client.peakTimeClients || 0), 0),
+      onlineMemberships: {
+        amount: dayClients.reduce((sum, client) => sum + (client.onlineMembershipsAmount || 0), 0),
+        value: dayClients.reduce((sum, client) => sum + (client.onlineMembershipsTotal || 0), 0)
+      },
+      offlineMemberships: {
+        amount: dayClients.reduce((sum, client) => sum + (client.offlineMembershipsAmount || 0), 0),
+        value: dayClients.reduce((sum, client) => sum + (client.offlineMembershipsTotal || 0), 0)
+      },
+      onlineVouchers: {
+        amount: dayClients.reduce((sum, client) => sum + (client.onlineVouchersAmount || 0), 0),
+        value: dayClients.reduce((sum, client) => sum + (client.onlineVouchersTotal || 0), 0)
+      },
+      paperVouchers: {
+        amount: dayClients.reduce((sum, client) => sum + (client.paperVouchersAmount || 0), 0),
+        value: dayClients.reduce((sum, client) => sum + (client.paperVouchersTotal || 0), 0)
+      },
+      yottaLinks: {
+        amount: dayClients.reduce((sum, client) => sum + (client.yottaLinksAmount || 0), 0),
+        value: dayClients.reduce((sum, client) => sum + (client.yottaLinksTotal || 0), 0)
+      },
+      yottaWidget: {
+        amount: dayClients.reduce((sum, client) => sum + (client.yottaWidgetAmount || 0), 0),
+        value: dayClients.reduce((sum, client) => sum + (client.yottaWidgetTotal || 0), 0)
+      },
+      foodAndDrink: dayClients.reduce((sum, client) => sum + (client.foodAndDrinkSales || 0), 0),
+      treatments: {
+        entryOnly: dayClients.reduce((sum, client) => sum + ((client.treatments?.entryOnly?.amount || 0) * (client.treatments?.entryOnly?.done ? 1 : 0)), 0),
+        parenie: dayClients.reduce((sum, client) => sum + ((client.treatments?.parenie?.amount || 0) * (client.treatments?.parenie?.done ? 1 : 0)), 0),
+        aromaPark: dayClients.reduce((sum, client) => sum + ((client.treatments?.aromaPark?.amount || 0) * (client.treatments?.aromaPark?.done ? 1 : 0)), 0),
+        iceWrap: dayClients.reduce((sum, client) => sum + ((client.treatments?.iceWrap?.amount || 0) * (client.treatments?.iceWrap?.done ? 1 : 0)), 0),
+        scrub: dayClients.reduce((sum, client) => sum + ((client.treatments?.scrub?.amount || 0) * (client.treatments?.scrub?.done ? 1 : 0)), 0),
+        mudMask: dayClients.reduce((sum, client) => sum + ((client.treatments?.mudMask?.amount || 0) * (client.treatments?.mudMask?.done ? 1 : 0)), 0),
+        mudWrap: dayClients.reduce((sum, client) => sum + ((client.treatments?.mudWrap?.amount || 0) * (client.treatments?.mudWrap?.done ? 1 : 0)), 0),
+        aloeVera: dayClients.reduce((sum, client) => sum + ((client.treatments?.aloeVera?.amount || 0) * (client.treatments?.aloeVera?.done ? 1 : 0)), 0),
+        massage_25: dayClients.reduce((sum, client) => sum + ((client.treatments?.massage_25?.amount || 0) * (client.treatments?.massage_25?.done ? 1 : 0)), 0),
+        massage_50: dayClients.reduce((sum, client) => sum + ((client.treatments?.massage_50?.amount || 0) * (client.treatments?.massage_50?.done ? 1 : 0)), 0)
+      }
+    };
+  }
+
+  // Aggregate the data for weekly totals
   const summary = {
     totalVisitors: weekClients.reduce((sum, client) => sum + (client.amountOfPeople || 0), 0),
     totalMale: weekClients.reduce((sum, client) => sum + (client.male || 0), 0),
@@ -548,11 +610,20 @@ app.get('/api/clients/weekly-summary', authenticateToken, (req, res) => {
       aloeVera: weekClients.reduce((sum, client) => sum + ((client.treatments?.aloeVera?.amount || 0) * (client.treatments?.aloeVera?.done ? 1 : 0)), 0),
       massage_25: weekClients.reduce((sum, client) => sum + ((client.treatments?.massage_25?.amount || 0) * (client.treatments?.massage_25?.done ? 1 : 0)), 0),
       massage_50: weekClients.reduce((sum, client) => sum + ((client.treatments?.massage_50?.amount || 0) * (client.treatments?.massage_50?.done ? 1 : 0)), 0)
-    }
+    },
+    dailyData
   };
 
   res.json({ summary });
 });
+
+// Helper function to format date as dd.mm.yyyy
+const formatDate = (date) => {
+  const day = date.getDate().toString().padStart(2, '0');
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}.${month}.${year}`;
+};
 
 const server = http.createServer(app);
 server.listen(PORT, () => {

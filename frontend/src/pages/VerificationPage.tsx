@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { ClientInfo } from '../types';
 import Card from '../components/common/Card';
-import { FaCheck, FaArrowLeft, FaArrowRight, FaCalendarDay, FaCalendarWeek, FaCalendarAlt, FaRegEdit, FaChevronDown, FaChevronUp, FaChartBar } from 'react-icons/fa';
+import { FaCheck, FaArrowLeft, FaArrowRight, FaCalendarDay, FaCalendarWeek, FaCalendarAlt, FaRegEdit, FaChevronDown, FaChevronUp } from 'react-icons/fa';
 import SurveyModal from './AddInformationPage';
+import { generateWeeklyReport } from '../utils/generateWeeklyReport';
 
 const VerificationPage: React.FC = () => {
   const { token, user } = useAuth();
@@ -974,7 +975,17 @@ const VerificationPage: React.FC = () => {
                           </button>
                           <h2 className="text-xl font-semibold text-gray-900">Weekly Summary</h2>
                         </div>
-                        <FaChartBar className="text-blue-500" size={20} />
+                        {weeklySummary && (
+                          <button
+                            onClick={() => generateWeeklyReport(weeklySummary, selectedWeekDate.toISOString().split('T')[0])}
+                            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center space-x-2"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <span>Export Excel</span>
+                          </button>
+                        )}
                       </div>
                       {!isWeeklySummaryCollapsed && weeklySummary && (
                         <div className="space-y-6">
