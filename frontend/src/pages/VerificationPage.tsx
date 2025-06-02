@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { ClientInfo } from '../types';
 import Card from '../components/common/Card';
-import { FaCheck, FaArrowLeft, FaArrowRight, FaCalendarDay, FaCalendarWeek, FaCalendarAlt, FaRegEdit, FaChevronDown, FaChevronUp } from 'react-icons/fa';
+import { FaCheck, FaArrowLeft, FaArrowRight, FaCalendarDay, FaCalendarWeek, FaCalendarAlt, FaRegEdit, FaChevronDown, FaChevronUp, FaChartBar } from 'react-icons/fa';
 import SurveyModal from './AddInformationPage';
 
 const VerificationPage: React.FC = () => {
@@ -12,13 +12,21 @@ const VerificationPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<ClientInfo | null>(null);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedWeekDate, setSelectedWeekDate] = useState(new Date());
+  const [selectedMonthDate, setSelectedMonthDate] = useState(new Date());
   const [viewType, setViewType] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [direction, setDirection] = useState<'left' | 'right' | null>(null);
   const [isViewTransitioning, setIsViewTransitioning] = useState(false);
   const [isHeadDataCollapsed, setIsHeadDataCollapsed] = useState(true);
   const [isReceptionDataCollapsed, setIsReceptionDataCollapsed] = useState(true);
+  const [isBonusesCollapsed, setIsBonusesCollapsed] = useState(true);
+  const [isWeeklySummaryCollapsed, setIsWeeklySummaryCollapsed] = useState(true);
+  const [isPrebookedCollapsed, setIsPrebookedCollapsed] = useState(false);
+  const [weeklySummary, setWeeklySummary] = useState<any>(null);
   const pollingIntervalRef = useRef<number>();
+  const [canNavigateNext, setCanNavigateNext] = useState(false);
+  const [canNavigatePrev, setCanNavigatePrev] = useState(true);
 
   const fetchUnverifiedClients = async () => {
     if (!token) {
@@ -70,6 +78,23 @@ const VerificationPage: React.FC = () => {
     }
   }, [token]);
 
+  // Helper functions for date manipulation
+  const getWeekStart = (date: Date) => {
+    const result = new Date(date);
+    const day = result.getDay();
+    const diff = result.getDate() - day + (day === 0 ? -6 : 1);
+    result.setDate(diff);
+    return result;
+  };
+
+  const getWeekEnd = (date: Date) => {
+    const result = new Date(date);
+    const day = result.getDay();
+    const diff = result.getDate() - day + (day === 0 ? 0 : 7);
+    result.setDate(diff);
+    return result;
+  };
+
   const formatDate = (date: Date) => {
     const day = date.getDate().toString().padStart(2, '0');
     const month = date.toLocaleString('default', { month: 'long' });
@@ -77,40 +102,151 @@ const VerificationPage: React.FC = () => {
     return `${day} ${month} ${year}`;
   };
 
+  const formatWeekRange = (startDate: Date, endDate: Date) => {
+    const startDay = startDate.getDate().toString().padStart(2, '0');
+    const startMonth = startDate.toLocaleString('default', { month: 'long' });
+    const endDay = endDate.getDate().toString().padStart(2, '0');
+    const endMonth = endDate.toLocaleString('default', { month: 'long' });
+    const year = startDate.getFullYear();
+    return `${startDay} ${startMonth} - ${endDay} ${endMonth} ${year}`;
+  };
+
+  const formatMonth = (date: Date) => {
+    const month = date.toLocaleString('default', { month: 'long' });
+    const year = date.getFullYear();
+    return `${month} ${year}`;
+  };
+
+  const getDayDate = (dayIndex: number, weekStart: Date) => {
+    const date = new Date(weekStart);
+    date.setDate(date.getDate() + dayIndex);
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    return `${day}.${month}`;
+  };
+
+  const checkNavigationAvailability = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    switch (viewType) {
+      case 'daily':
+        const nextDay = new Date(selectedDate);
+        nextDay.setDate(nextDay.getDate() + 1);
+        nextDay.setHours(0, 0, 0, 0);
+        setCanNavigateNext(nextDay.getTime() <= today.getTime());
+        setCanNavigatePrev(true);
+        break;
+      case 'weekly':
+        const nextWeekDate = new Date(selectedWeekDate);
+        nextWeekDate.setDate(nextWeekDate.getDate() + 7);
+        nextWeekDate.setHours(0, 0, 0, 0);
+
+        const maxWeekStart = new Date(today);
+        maxWeekStart.setDate(maxWeekStart.getDate() + 7);
+        maxWeekStart.setHours(0, 0, 0, 0);
+
+        setCanNavigateNext(nextWeekDate.getTime() <= maxWeekStart.getTime());
+        setCanNavigatePrev(true); // Always allow going back
+        break;
+      case 'monthly':
+        const nextMonthDate = new Date(selectedMonthDate);
+        nextMonthDate.setMonth(nextMonthDate.getMonth() + 1);
+        nextMonthDate.setHours(0, 0, 0, 0);
+
+        const maxMonthStart = new Date(today);
+        maxMonthStart.setMonth(maxMonthStart.getMonth() + 1);
+        maxMonthStart.setHours(0, 0, 0, 0);
+
+        setCanNavigateNext(nextMonthDate.getTime() < maxMonthStart.getTime());
+        setCanNavigatePrev(true); // Always allow going back
+        break;
+    }
+  };
+
+  useEffect(() => {
+    checkNavigationAvailability();
+  }, [viewType, selectedDate, selectedWeekDate, selectedMonthDate]);
+
+  const handlePrevPeriod = () => {
+    if (!canNavigatePrev) return;
+
+    setIsTransitioning(true);
+    setDirection('left');
+    
+    switch (viewType) {
+      case 'daily':
+        const newDailyDate = new Date(selectedDate);
+        newDailyDate.setDate(newDailyDate.getDate() - 1);
+        setTimeout(() => {
+          setSelectedDate(newDailyDate);
+          setIsTransitioning(false);
+          setDirection(null);
+        }, 200);
+        break;
+      case 'weekly':
+        const newWeekDate = new Date(selectedWeekDate);
+        newWeekDate.setDate(newWeekDate.getDate() - 7);
+        setTimeout(() => {
+          setSelectedWeekDate(newWeekDate);
+          setIsTransitioning(false);
+          setDirection(null);
+        }, 200);
+        break;
+      case 'monthly':
+        const newMonthDate = new Date(selectedMonthDate);
+        newMonthDate.setMonth(newMonthDate.getMonth() - 1);
+        setTimeout(() => {
+          setSelectedMonthDate(newMonthDate);
+          setIsTransitioning(false);
+          setDirection(null);
+        }, 200);
+        break;
+    }
+  };
+
+  const handleNextPeriod = () => {
+    if (!canNavigateNext) return;
+
+    setIsTransitioning(true);
+    setDirection('right');
+    
+    switch (viewType) {
+      case 'daily':
+        const newDailyDate = new Date(selectedDate);
+        newDailyDate.setDate(newDailyDate.getDate() + 1);
+        setTimeout(() => {
+          setSelectedDate(newDailyDate);
+          setIsTransitioning(false);
+          setDirection(null);
+        }, 200);
+        break;
+      case 'weekly':
+        const newWeekDate = new Date(selectedWeekDate);
+        newWeekDate.setDate(newWeekDate.getDate() + 7);
+        setTimeout(() => {
+          setSelectedWeekDate(newWeekDate);
+          setIsTransitioning(false);
+          setDirection(null);
+        }, 200);
+        break;
+      case 'monthly':
+        const newMonthDate = new Date(selectedMonthDate);
+        newMonthDate.setMonth(newMonthDate.getMonth() + 1);
+        setTimeout(() => {
+          setSelectedMonthDate(newMonthDate);
+          setIsTransitioning(false);
+          setDirection(null);
+        }, 200);
+        break;
+    }
+  };
+
   const filterClientsByDate = (clients: ClientInfo[], date: Date) => {
     return clients.filter((client) => {
       const clientDate = new Date(client.date);
       return clientDate.toDateString() === date.toDateString();
     });
-  };
-
-  const handlePrevDay = () => {
-    setIsTransitioning(true);
-    setDirection('left');
-    const newDate = new Date(selectedDate);
-    newDate.setDate(newDate.getDate() - 1);
-    setTimeout(() => {
-      setSelectedDate(newDate);
-      setIsTransitioning(false);
-      setDirection(null);
-    }, 200);
-  };
-
-  const handleNextDay = () => {
-    setIsTransitioning(true);
-    setDirection('right');
-    const newDate = new Date(selectedDate);
-    newDate.setDate(newDate.getDate() + 1);
-    setTimeout(() => {
-      setSelectedDate(newDate);
-      setIsTransitioning(false);
-      setDirection(null);
-    }, 200);
-  };
-
-  const isToday = (date: Date) => {
-    const today = new Date();
-    return date.toDateString() === today.toDateString();
   };
 
   const handleConfirm = async (clientId: number, verifyType: 'survey' | 'headData') => {
@@ -153,7 +289,9 @@ const VerificationPage: React.FC = () => {
     }, 200);
   };
 
+  type DayOfWeek = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
   type TreatmentKey = keyof NonNullable<typeof latestClient.treatments>;
+  type BonusKey = keyof NonNullable<typeof latestClient.bonuses>;
 
   const handleTreatmentUpdate = async (treatment: TreatmentKey, isDone: boolean) => {
     if (!token || !latestClient?.id || !latestClient.treatments) {
@@ -265,6 +403,37 @@ const VerificationPage: React.FC = () => {
     }
   };
 
+  const handleClientUpdate = async (updates: Partial<ClientInfo>) => {
+    if (!token || !latestClient?.id) {
+      setError('No authentication token available or no client selected');
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:2345/api/clients/${latestClient.id}`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...latestClient,
+          ...updates
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Failed to update client: ${response.status}`);
+      }
+
+      fetchUnverifiedClients();
+    } catch (err) {
+      console.error('Update client error:', err);
+      setError(err instanceof Error ? err.message : 'Error updating client data');
+    }
+  };
+
   const filteredClients = filterClientsByDate(clients, selectedDate);
   const latestClient = filteredClients[0];
 
@@ -278,6 +447,37 @@ const VerificationPage: React.FC = () => {
         return 'bg-gray-100 text-gray-800';
     }
   };
+
+  const fetchWeeklySummary = async (weekStart: Date) => {
+    if (!token) {
+      setError('No authentication token available');
+      return;
+    }
+    try {
+      const response = await fetch(`http://localhost:2345/api/clients/weekly-summary?weekStart=${weekStart.toISOString().split('T')[0]}`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Failed to fetch weekly summary: ${response.status}`);
+      }
+      const data = await response.json();
+      setWeeklySummary(data.summary);
+    } catch (err) {
+      console.error('Fetch weekly summary error:', err);
+      setError(err instanceof Error ? err.message : 'Error fetching weekly summary');
+    }
+  };
+
+  useEffect(() => {
+    if (viewType === 'weekly') {
+      fetchWeeklySummary(selectedWeekDate);
+    }
+  }, [viewType, selectedWeekDate, token]);
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50 text-gray-800 p-6 overflow-auto">
@@ -323,15 +523,33 @@ const VerificationPage: React.FC = () => {
 
         {/* Date Navigation */}
         <div className="mb-6 flex items-center justify-center space-x-4">
-          <button onClick={handlePrevDay} className="p-2 text-gray-800 hover:text-green-900">
+          <button 
+            onClick={handlePrevPeriod} 
+            className={`p-2 transition-colors ${
+              canNavigatePrev 
+                ? 'text-gray-800 hover:text-green-900' 
+                : 'text-gray-400 cursor-not-allowed'
+            }`}
+            disabled={!canNavigatePrev}
+          >
             <FaArrowLeft size={20} />
           </button>
-          <span className="text-xl font-medium">{formatDate(selectedDate)}</span>
-          {!isToday(selectedDate) && (
-            <button onClick={handleNextDay} className="p-2 text-gray-800 hover:text-green-900">
-              <FaArrowRight size={20} />
-            </button>
-          )}
+          <span className="text-xl font-medium">
+            {viewType === 'daily' && formatDate(selectedDate)}
+            {viewType === 'weekly' && formatWeekRange(getWeekStart(selectedWeekDate), getWeekEnd(selectedWeekDate))}
+            {viewType === 'monthly' && formatMonth(selectedMonthDate)}
+          </span>
+          <button 
+            onClick={handleNextPeriod} 
+            className={`p-2 transition-colors ${
+              canNavigateNext 
+                ? 'text-gray-800 hover:text-green-900' 
+                : 'text-gray-400 cursor-not-allowed'
+            }`}
+            disabled={!canNavigateNext}
+          >
+            <FaArrowRight size={20} />
+          </button>
         </div>
 
         {/* Content with Transitions */}
@@ -695,7 +913,7 @@ const VerificationPage: React.FC = () => {
                                     <h3 className="text-lg font-medium text-gray-900 mb-4">Transactions</h3>
                                     <div className="space-y-6">
                                       <div className="bg-white p-4 rounded-md shadow-sm">
-                                        <p className="text-2xl font-semibold text-green-700">£{(latestClient.yottaLinksTotal || 0) + (latestClient.digitalBillTotal || 0)} Total</p>
+                                        <p className="text-2xl font-semibold text-green-700">£{(latestClient.yottaLinksTotal || 0)} Total</p>
                                       </div>
                                       
                                       <div>
@@ -717,18 +935,6 @@ const VerificationPage: React.FC = () => {
                                             <div className="bg-white p-3">
                                               <p className="text-xs text-gray-500 mb-1">Yotta Widget Total</p>
                                               <p className="text-lg font-semibold text-gray-900">£{latestClient.yottaWidgetTotal || 0}</p>
-                                            </div>
-                                          </div>
-                                        </div>
-                                        <div className="bg-white rounded-md shadow-sm overflow-hidden mt-4">
-                                          <div className="grid grid-cols-2 gap-px bg-gray-200">
-                                            <div className="bg-white p-3">
-                                              <p className="text-xs text-gray-500 mb-1">Digital Bill</p>
-                                              <p className="text-lg font-semibold text-gray-900">{latestClient.digitalBillAmount || 0}</p>
-                                            </div>
-                                            <div className="bg-white p-3">
-                                              <p className="text-xs text-gray-500 mb-1">Digital Bill Total</p>
-                                              <p className="text-lg font-semibold text-gray-900">£{latestClient.digitalBillTotal || 0}</p>
                                             </div>
                                           </div>
                                         </div>
@@ -754,8 +960,304 @@ const VerificationPage: React.FC = () => {
               )}
 
               {viewType === 'weekly' && (
-                <div className="text-center p-4 text-gray-500">
-                  <p>Weekly view content will be displayed here</p>
+                <div className="space-y-6">
+                  {/* Weekly Summary Block */}
+                  <Card className="bg-white border border-gray-200 shadow-sm">
+                    <div className="p-6">
+                      <div className="flex justify-between items-center mb-4">
+                        <div className="flex items-center space-x-3">
+                          <button
+                            onClick={() => setIsWeeklySummaryCollapsed(!isWeeklySummaryCollapsed)}
+                            className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                          >
+                            {isWeeklySummaryCollapsed ? <FaChevronDown size={16} /> : <FaChevronUp size={16} />}
+                          </button>
+                          <h2 className="text-xl font-semibold text-gray-900">Weekly Summary</h2>
+                        </div>
+                        <FaChartBar className="text-blue-500" size={20} />
+                      </div>
+                      {!isWeeklySummaryCollapsed && weeklySummary && (
+                        <div className="space-y-6">
+                          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+                            {/* First column: Weekly Overview and Language & Timing */}
+                            <div className="flex flex-col h-full gap-6">
+                              <div className="bg-gray-50 p-4 rounded-lg flex-1 flex flex-col">
+                                <h3 className="text-lg font-medium text-gray-900 mb-3">Clients</h3>
+                                <div className="bg-white rounded-md shadow-sm overflow-hidden">
+                                  <div className="grid grid-cols-2 gap-px bg-gray-200">
+                                    <div className="bg-white p-2">
+                                      <p className="text-xs text-gray-500 mb-2 ml-2">Total Visitors</p>
+                                      <p className="text-sm font-semibold text-gray-900 m-2 text-right">{weeklySummary.totalVisitors}</p>
+                                    </div>
+                                    <div className="bg-white p-2">
+                                      <p className="text-xs text-gray-500 mb-2 ml-2">New Clients</p>
+                                      <p className="text-sm font-semibold text-gray-900 m-2 text-right">{weeklySummary.totalNewClients}</p>
+                                    </div>
+                                    <div className="bg-white p-2">
+                                      <p className="text-xs text-gray-500 mb-2 ml-2">Male</p>
+                                      <p className="text-sm font-semibold text-gray-900 m-2 text-right">{weeklySummary.totalMale}</p>
+                                    </div>
+                                    <div className="bg-white p-2">
+                                      <p className="text-xs text-gray-500 mb-2 ml-2">Female</p>
+                                      <p className="text-sm font-semibold text-gray-900 m-2 text-right">{weeklySummary.totalFemale}</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="bg-gray-50 p-4 rounded-lg flex-1 flex flex-col">
+                                <h3 className="text-lg font-medium text-gray-900 mb-3">Language & Timing</h3>
+                                <div className="bg-white rounded-md shadow-sm overflow-hidden">
+                                  <div className="grid grid-cols-2 gap-px bg-gray-200">
+                                    <div className="bg-white p-2">
+                                      <p className="text-xs text-gray-500 mb-2 ml-2">English</p>
+                                      <p className="text-sm font-semibold text-gray-900 m-2 text-right">{weeklySummary.totalEnglishSpeaking}</p>
+                                    </div>
+                                    <div className="bg-white p-2">
+                                      <p className="text-xs text-gray-500 mb-2 ml-2">Russian</p>
+                                      <p className="text-sm font-semibold text-gray-900 m-2 text-right">{weeklySummary.totalRussianSpeaking}</p>
+                                    </div>
+                                    <div className="bg-white p-2">
+                                      <p className="text-xs text-gray-500 mb-2 ml-2">Off-Peak</p>
+                                      <p className="text-sm font-semibold text-gray-900 m-2 text-right">{weeklySummary.totalOffPeak}</p>
+                                    </div>
+                                    <div className="bg-white p-2">
+                                      <p className="text-xs text-gray-500 mb-2 ml-2">Peak-Time</p>
+                                      <p className="text-sm font-semibold text-gray-900 m-2 text-right">{weeklySummary.totalPeakTime}</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            {/* Second column: Sales Overview and Transactions */}
+                            <div className="flex flex-col h-full gap-6">
+                              <div className="bg-gray-50 p-4 rounded-lg flex-1 flex flex-col">
+                                <h3 className="text-lg font-medium text-gray-900 mb-3">Sales</h3>
+                                <div className="bg-white rounded-md shadow-sm overflow-hidden">
+                                  <div className="grid grid-cols-2 gap-px bg-gray-200">
+                                    <div className="bg-white p-2">
+                                      <p className="text-xs text-gray-500 mb-2 ml-2">Online Memberships</p>
+                                      <div className="flex justify-between items-center m-2">
+                                        <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalOnlineMemberships.amount}</p>
+                                        <p className="text-sm font-semibold text-green-700">£{weeklySummary.totalOnlineMemberships.value}</p>
+                                      </div>
+                                    </div>
+                                    <div className="bg-white p-2">
+                                      <p className="text-xs text-gray-500 mb-2 ml-2">Offline Memberships</p>
+                                      <div className="flex justify-between items-center m-2">
+                                        <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalOfflineMemberships.amount}</p>
+                                        <p className="text-sm font-semibold text-green-700">£{weeklySummary.totalOfflineMemberships.value}</p>
+                                      </div>
+                                    </div>
+                                    <div className="bg-white p-2">
+                                      <p className="text-xs text-gray-500 mb-2 ml-2">Online Vouchers</p>
+                                      <div className="flex justify-between items-center m-2">
+                                        <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalOnlineVouchers.amount}</p>
+                                        <p className="text-sm font-semibold text-green-700">£{weeklySummary.totalOnlineVouchers.value}</p>
+                                      </div>
+                                    </div>
+                                    <div className="bg-white p-2">
+                                      <p className="text-xs text-gray-500 mb-2 ml-2">Paper Vouchers</p>
+                                      <div className="flex justify-between items-center m-2">
+                                        <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalPaperVouchers.amount}</p>
+                                        <p className="text-sm font-semibold text-green-700">£{weeklySummary.totalPaperVouchers.value}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="bg-gray-50 p-4 rounded-lg flex-1 flex flex-col">
+                                <h3 className="text-lg font-medium text-gray-900 mb-3">Transactions</h3>
+                                <div className="bg-white rounded-md shadow-sm overflow-hidden">
+                                  <div className="grid grid-cols-2 gap-px bg-gray-200">
+                                    <div className="bg-white p-2">
+                                      <p className="text-xs text-gray-500 mb-2 ml-2">Yotta Links</p>
+                                      <div className="flex justify-between items-center m-2">
+                                        <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalYottaLinks.amount}</p>
+                                        <p className="text-sm font-semibold text-green-700">£{weeklySummary.totalYottaLinks.value}</p>
+                                      </div>
+                                    </div>
+                                    <div className="bg-white p-2">
+                                      <p className="text-xs text-gray-500 mb-2 ml-2">Yotta Widget</p>
+                                      <div className="flex justify-between items-center m-2">
+                                        <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalYottaWidget.amount}</p>
+                                        <p className="text-sm font-semibold text-green-700">£{weeklySummary.totalYottaWidget.value}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            {/* Third column: Treatments & Sales (spans both rows) */}
+                            <div className="bg-gray-50 p-4 rounded-lg h-full flex flex-col">
+                              <h3 className="text-lg font-medium text-gray-900 mb-3">Treatments & Kitchen</h3>
+                              <div className="bg-white rounded-md shadow-sm overflow-hidden">
+                                {/* Food and Drink Sales */}
+                                <div className="p-3 border-b border-gray-200">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-sm font-medium text-gray-700">Food and Drink Sales</span>
+                                    <span className="text-lg font-semibold text-blue-700">£{weeklySummary.totalFoodAndDrink}</span>
+                                  </div>
+                                </div>
+                                {/* Treatments */}
+                                <div className="grid grid-cols-2 gap-px bg-gray-200">
+                                  {Object.entries(weeklySummary.treatments).map(([treatment, amount]) => (
+                                    <div key={treatment} className="bg-white p-2">
+                                      <p className="text-xs text-gray-500">{treatment.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()).replace(/_/g, "'")}</p>
+                                      <p className="text-sm font-semibold text-gray-900 text-right">{amount as number}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                                <div className="bg-gray-50 p-2 flex justify-between items-center">
+                                  <span className="text-sm font-medium text-gray-700">Total Treatments</span>
+                                  <span className="text-sm font-semibold text-blue-700">
+                                    £{Object.values(weeklySummary.treatments).reduce((sum: number, amount: any) => sum + (amount as number), 0)}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </Card>
+
+                  {/* Prebooked Data Block */}
+                  <Card className="bg-white border border-gray-200 shadow-sm">
+                    <div className="p-6">
+                      <div className="flex justify-between items-center mb-4">
+                        <div className="flex items-center space-x-3">
+                          <button
+                            onClick={() => setIsPrebookedCollapsed(!isPrebookedCollapsed)}
+                            className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                          >
+                            {isPrebookedCollapsed ? <FaChevronDown size={16} /> : <FaChevronUp size={16} />}
+                          </button>
+                          <h2 className="text-xl font-semibold text-gray-900">Prebooked Data</h2>
+                        </div>
+                      </div>
+                      {!isPrebookedCollapsed && (
+                        <div className="overflow-x-auto">
+                          <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Day</th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Value (£)</th>
+                              </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                              {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day, index) => (
+                                <tr key={day}>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 capitalize">
+                                    {day} ({getDayDate(index, getWeekStart(selectedWeekDate))})
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-right">
+                                    <input
+                                      type="number"
+                                      value={latestClient?.dailyPreBooked?.[day as DayOfWeek] || 0}
+                                      onChange={(e) => {
+                                        const value = parseInt(e.target.value) || 0;
+                                        const updatedPreBooked = {
+                                          ...latestClient?.dailyPreBooked,
+                                          [day]: value
+                                        } as NonNullable<typeof latestClient.dailyPreBooked>;
+                                        handleClientUpdate({ dailyPreBooked: updatedPreBooked });
+                                      }}
+                                      className="w-20 px-2 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-green-500 text-right"
+                                      min="0"
+                                    />
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-right">
+                                    <input
+                                      type="number"
+                                      value={latestClient?.dailyPreBookedValue?.[day as DayOfWeek] || 0}
+                                      onChange={(e) => {
+                                        const value = parseFloat(e.target.value) || 0;
+                                        const updatedPreBookedValue = {
+                                          ...latestClient?.dailyPreBookedValue,
+                                          [day]: value
+                                        } as NonNullable<typeof latestClient.dailyPreBookedValue>;
+                                        handleClientUpdate({ dailyPreBookedValue: updatedPreBookedValue });
+                                      }}
+                                      className="w-24 px-2 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-green-500 text-right"
+                                      min="0"
+                                      step="0.01"
+                                    />
+                                  </td>
+                                </tr>
+                              ))}
+                              <tr className="bg-gray-50">
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">Total</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 text-right">
+                                  {Object.values(latestClient?.dailyPreBooked || {}).reduce((sum, val) => sum + val, 0)}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 text-right">
+                                  £{Object.values(latestClient?.dailyPreBookedValue || {}).reduce((sum, val) => sum + val, 0).toFixed(2)}
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  </Card>
+
+                  {/* Bonuses Block */}
+                  <Card className="bg-white border border-gray-200 shadow-sm">
+                    <div className="p-6">
+                      <div className="flex justify-between items-center mb-4">
+                        <div className="flex items-center space-x-3">
+                          <button
+                            onClick={() => setIsBonusesCollapsed(!isBonusesCollapsed)}
+                            className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                          >
+                            {isBonusesCollapsed ? <FaChevronDown size={16} /> : <FaChevronUp size={16} />}
+                          </button>
+                          <h2 className="text-xl font-semibold text-gray-900">Bonuses</h2>
+                        </div>
+                      </div>
+                      {!isBonusesCollapsed && (
+                        <div className="grid grid-cols-2 gap-4">
+                          {[
+                            { key: 'kitchenBonus', label: 'Kitchen Bonus F&B' },
+                            { key: 'ondeskSalesBonus', label: 'Ondesk Sales Bonus' },
+                            { key: 'miscBonus', label: 'Misc Bonus' },
+                            { key: 'allPerformanceBonus', label: 'All Performance Bonus' },
+                            { key: 'vouchersSalesBonus', label: 'Vouchers Sales Bonus' },
+                            { key: 'membershipSalesBonus', label: 'Membership Sales Bonus' },
+                            { key: 'privateBookingsBonus', label: 'Private Bookings Bonus' }
+                          ].map(({ key, label }) => (
+                            <div key={key} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                              <span className="text-sm font-medium text-gray-700">{label}</span>
+                              <input
+                                type="number"
+                                value={latestClient?.bonuses?.[key as BonusKey] || 0}
+                                onChange={(e) => {
+                                  const value = parseFloat(e.target.value) || 0;
+                                  const updatedBonuses = {
+                                    ...latestClient?.bonuses,
+                                    [key]: value
+                                  } as NonNullable<typeof latestClient.bonuses>;
+                                  handleClientUpdate({ bonuses: updatedBonuses });
+                                }}
+                                className="w-32 px-2 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+                                min="0"
+                                step="0.01"
+                              />
+                            </div>
+                          ))}
+                          <div className="col-span-2 mt-4 p-3 bg-gray-50 rounded-lg">
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm font-medium text-gray-700">Total Bonuses</span>
+                              <span className="text-lg font-semibold text-gray-900">
+                                £{Object.values(latestClient?.bonuses || {}).reduce((sum, bonus) => sum + bonus, 0).toFixed(2)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </Card>
                 </div>
               )}
 
@@ -788,6 +1290,7 @@ const VerificationPage: React.FC = () => {
           }}
           onSubmitSuccess={handleSubmitSuccess}
           initialData={selectedClient}
+          selectedDate={selectedDate.toISOString().split('T')[0]}
         />
       )}
     </div>

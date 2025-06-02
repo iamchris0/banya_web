@@ -90,8 +90,10 @@ app.post('/api/clients', authenticateToken, restrictToRoles(['admin']), (req, re
     yottaLinksTotal,
     yottaWidgetAmount,
     yottaWidgetTotal,
-    digitalBillAmount,
-    digitalBillTotal,
+    dailyPreBooked,
+    dailyPreBookedValue,
+    treatments,
+    bonuses,
     date,
   } = req.body;
 
@@ -122,10 +124,27 @@ app.post('/api/clients', authenticateToken, restrictToRoles(['admin']), (req, re
     yottaLinksTotal: Number(yottaLinksTotal) || 0,
     yottaWidgetAmount: Number(yottaWidgetAmount) || 0,
     yottaWidgetTotal: Number(yottaWidgetTotal) || 0,
-    digitalBillAmount: Number(digitalBillAmount) || 0,
-    digitalBillTotal: Number(digitalBillTotal) || 0,
+  
     foodAndDrinkSales: 0,
-    treatments: {
+    dailyPreBooked: dailyPreBooked || {
+      monday: 0,
+      tuesday: 0,
+      wednesday: 0,
+      thursday: 0,
+      friday: 0,
+      saturday: 0,
+      sunday: 0
+    },
+    dailyPreBookedValue: dailyPreBookedValue || {
+      monday: 0,
+      tuesday: 0,
+      wednesday: 0,
+      thursday: 0,
+      friday: 0,
+      saturday: 0,
+      sunday: 0
+    },
+    treatments: treatments || {
       entryOnly: { done: false, amount: 0 },
       parenie: { done: false, amount: 0 },
       aromaPark: { done: false, amount: 0 },
@@ -136,6 +155,15 @@ app.post('/api/clients', authenticateToken, restrictToRoles(['admin']), (req, re
       aloeVera: { done: false, amount: 0 },
       massage_25: { done: false, amount: 0 },
       massage_50: { done: false, amount: 0 }
+    },
+    bonuses: bonuses || {
+      kitchenBonus: 0,
+      ondeskSalesBonus: 0,
+      miscBonus: 0,
+      allPerformanceBonus: 0,
+      vouchersSalesBonus: 0,
+      membershipSalesBonus: 0,
+      privateBookingsBonus: 0
     },
     date,
     createdBy: req.user.username,
@@ -175,10 +203,11 @@ app.put('/api/clients/:id', authenticateToken, restrictToRoles(['admin', 'head']
     yottaLinksTotal,
     yottaWidgetAmount,
     yottaWidgetTotal,
-    digitalBillAmount,
-    digitalBillTotal,
     foodAndDrinkSales,
+    dailyPreBooked,
+    dailyPreBookedValue,
     treatments,
+    bonuses,
     date,
   } = req.body;
 
@@ -220,10 +249,11 @@ app.put('/api/clients/:id', authenticateToken, restrictToRoles(['admin', 'head']
     yottaLinksTotal: Number(yottaLinksTotal) || 0,
     yottaWidgetAmount: Number(yottaWidgetAmount) || 0,
     yottaWidgetTotal: Number(yottaWidgetTotal) || 0,
-    digitalBillAmount: Number(digitalBillAmount) || 0,
-    digitalBillTotal: Number(digitalBillTotal) || 0,
     foodAndDrinkSales: Number(foodAndDrinkSales) || 0,
+    dailyPreBooked: dailyPreBooked || clients[clientIndex].dailyPreBooked,
+    dailyPreBookedValue: dailyPreBookedValue || clients[clientIndex].dailyPreBookedValue,
     treatments: treatments || clients[clientIndex].treatments,
+    bonuses: bonuses || clients[clientIndex].bonuses,
     date,
     isVerified: false,
     status: {
@@ -444,6 +474,84 @@ app.get('/api/active-users', authenticateToken, (req, res) => {
     activeUsers: Array.from(pageUsers),
     count: pageUsers.size
   });
+});
+
+// Get aggregated weekly data
+app.get('/api/clients/weekly-summary', authenticateToken, (req, res) => {
+  const { weekStart } = req.query;
+  if (!weekStart) {
+    return res.status(400).json({ message: 'Missing weekStart query parameter' });
+  }
+
+  // Convert weekStart to Date object
+  const startDate = new Date(weekStart);
+  const endDate = new Date(startDate);
+  endDate.setDate(endDate.getDate() + 6); // Add 6 days to get the end of the week
+
+  // Filter clients for the specified week
+  const weekClients = clients.filter(client => {
+    const clientDate = new Date(client.date);
+    return clientDate >= startDate && clientDate <= endDate;
+  });
+
+  // Aggregate the data
+  const summary = {
+    totalVisitors: weekClients.reduce((sum, client) => sum + (client.amountOfPeople || 0), 0),
+    totalMale: weekClients.reduce((sum, client) => sum + (client.male || 0), 0),
+    totalFemale: weekClients.reduce((sum, client) => sum + (client.female || 0), 0),
+    totalNewClients: weekClients.reduce((sum, client) => sum + (client.newClients || 0), 0),
+    totalEnglishSpeaking: weekClients.reduce((sum, client) => sum + (client.englishSpeaking || 0), 0),
+    totalRussianSpeaking: weekClients.reduce((sum, client) => sum + (client.russianSpeaking || 0), 0),
+    totalOffPeak: weekClients.reduce((sum, client) => sum + (client.offPeakClients || 0), 0),
+    totalPeakTime: weekClients.reduce((sum, client) => sum + (client.peakTimeClients || 0), 0),
+    
+    // Sales totals
+    totalOnlineMemberships: {
+      amount: weekClients.reduce((sum, client) => sum + (client.onlineMembershipsAmount || 0), 0),
+      value: weekClients.reduce((sum, client) => sum + (client.onlineMembershipsTotal || 0), 0)
+    },
+    totalOfflineMemberships: {
+      amount: weekClients.reduce((sum, client) => sum + (client.offlineMembershipsAmount || 0), 0),
+      value: weekClients.reduce((sum, client) => sum + (client.offlineMembershipsTotal || 0), 0)
+    },
+    totalOnlineVouchers: {
+      amount: weekClients.reduce((sum, client) => sum + (client.onlineVouchersAmount || 0), 0),
+      value: weekClients.reduce((sum, client) => sum + (client.onlineVouchersTotal || 0), 0)
+    },
+    totalPaperVouchers: {
+      amount: weekClients.reduce((sum, client) => sum + (client.paperVouchersAmount || 0), 0),
+      value: weekClients.reduce((sum, client) => sum + (client.paperVouchersTotal || 0), 0)
+    },
+    
+    // Transaction totals
+    totalYottaLinks: {
+      amount: weekClients.reduce((sum, client) => sum + (client.yottaLinksAmount || 0), 0),
+      value: weekClients.reduce((sum, client) => sum + (client.yottaLinksTotal || 0), 0)
+    },
+    totalYottaWidget: {
+      amount: weekClients.reduce((sum, client) => sum + (client.yottaWidgetAmount || 0), 0),
+      value: weekClients.reduce((sum, client) => sum + (client.yottaWidgetTotal || 0), 0)
+    },
+    
+    // Food and drink sales
+    totalFoodAndDrink: weekClients.reduce((sum, client) => sum + (client.foodAndDrinkSales || 0), 0),
+    
+    // Treatments summary
+    treatments: {
+      entryOnly: weekClients.reduce((sum, client) => sum + ((client.treatments?.entryOnly?.amount || 0) * (client.treatments?.entryOnly?.done ? 1 : 0)), 0),
+      parenie: weekClients.reduce((sum, client) => sum + ((client.treatments?.parenie?.amount || 0) * (client.treatments?.parenie?.done ? 1 : 0)), 0),
+      aromaPark: weekClients.reduce((sum, client) => sum + ((client.treatments?.aromaPark?.amount || 0) * (client.treatments?.aromaPark?.done ? 1 : 0)), 0),
+      iceWrap: weekClients.reduce((sum, client) => sum + ((client.treatments?.iceWrap?.amount || 0) * (client.treatments?.iceWrap?.done ? 1 : 0)), 0),
+      scrub: weekClients.reduce((sum, client) => sum + ((client.treatments?.scrub?.amount || 0) * (client.treatments?.scrub?.done ? 1 : 0)), 0),
+      mudMask: weekClients.reduce((sum, client) => sum + ((client.treatments?.mudMask?.amount || 0) * (client.treatments?.mudMask?.done ? 1 : 0)), 0),
+      mudWrap: weekClients.reduce((sum, client) => sum + ((client.treatments?.mudWrap?.amount || 0) * (client.treatments?.mudWrap?.done ? 1 : 0)), 0),
+      aloeVera: weekClients.reduce((sum, client) => sum + ((client.treatments?.aloeVera?.amount || 0) * (client.treatments?.aloeVera?.done ? 1 : 0)), 0),
+      massage_25: weekClients.reduce((sum, client) => sum + ((client.treatments?.massage_25?.amount || 0) * (client.treatments?.massage_25?.done ? 1 : 0)), 0),
+      massage_50: weekClients.reduce((sum, client) => sum + ((client.treatments?.massage_50?.amount || 0) * (client.treatments?.massage_50?.done ? 1 : 0)), 0)
+    }
+  };
+
+  res.json({ summary });
 });
 
 const server = http.createServer(app);

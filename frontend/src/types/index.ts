@@ -39,8 +39,6 @@ export interface ClientInfo {
   yottaLinksTotal: number;
   yottaWidgetAmount: number;
   yottaWidgetTotal: number;
-  digitalBillAmount: number;
-  digitalBillTotal: number;
   foodAndDrinkSales?: number;
   treatments?: {
     entryOnly: { done: boolean; amount: number };
@@ -77,6 +75,24 @@ export interface ClientInfo {
     friday: number;
     saturday: number;
     sunday: number;
+  };
+  dailyPreBookedValue?: {
+    monday: number;
+    tuesday: number;
+    wednesday: number;
+    thursday: number;
+    friday: number;
+    saturday: number;
+    sunday: number;
+  };
+  bonuses?: {
+    kitchenBonus: number;
+    ondeskSalesBonus: number;
+    miscBonus: number;
+    allPerformanceBonus: number;
+    vouchersSalesBonus: number;
+    membershipSalesBonus: number;
+    privateBookingsBonus: number;
   };
   date: string;
   createdBy: string;
