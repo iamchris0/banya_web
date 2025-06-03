@@ -783,7 +783,7 @@ const VerificationPage: React.FC = () => {
                                     <div className="space-y-6">
                                       <div className="bg-white p-4 rounded-md shadow-sm">
                                         <p className="text-sm font-medium text-gray-700 mb-2">Total Visitors</p>
-                                        <p className="text-2xl font-semibold text-purple-700">{latestClient.amountOfPeople || 0}</p>
+                                        <p className="text-2xl font-semibold text-purple-700 text-center">{latestClient.amountOfPeople || 0}</p>
                                       </div>
                                       
                                       <div>
@@ -791,19 +791,19 @@ const VerificationPage: React.FC = () => {
                                           <div className="grid grid-cols-2 gap-px bg-gray-200">
                                             <div className="bg-white p-3">
                                               <p className="text-xs text-gray-500 mb-1">Total</p>
-                                              <p className="text-lg font-semibold text-gray-900">{latestClient.amountOfPeople || 0}</p>
+                                              <p className="text-lg font-semibold text-gray-900 text-right">{latestClient.amountOfPeople || 0}</p>
                                             </div>
                                             <div className="bg-white p-3">
                                               <p className="text-xs text-gray-500 mb-1">New Clients</p>
-                                              <p className="text-lg font-semibold text-gray-900">{latestClient.newClients || 0}</p>
+                                              <p className="text-lg font-semibold text-gray-900 text-right">{latestClient.newClients || 0}</p>
                                             </div>
                                             <div className="bg-white p-3">
                                               <p className="text-xs text-gray-500 mb-1">Male</p>
-                                              <p className="text-lg font-semibold text-gray-900">{latestClient.male || 0}</p>
+                                              <p className="text-lg font-semibold text-gray-900 text-right">{latestClient.male || 0}</p>
                                             </div>
                                             <div className="bg-white p-3">
                                               <p className="text-xs text-gray-500 mb-1">Female</p>
-                                              <p className="text-lg font-semibold text-gray-900">{latestClient.female || 0}</p>
+                                              <p className="text-lg font-semibold text-gray-900 text-right">{latestClient.female || 0}</p>
                                             </div>
                                           </div>
                                         </div>
@@ -817,7 +817,7 @@ const VerificationPage: React.FC = () => {
                                     <div className="space-y-6">
                                       <div className="bg-white p-4 rounded-md shadow-sm">
                                         <p className="text-sm font-medium text-gray-700 mb-2">Language Distribution</p>
-                                        <p className="text-2xl font-semibold text-green-700">
+                                        <p className="text-2xl font-semibold text-green-700 text-center">
                                           {latestClient.englishSpeaking + latestClient.russianSpeaking || 0}
                                         </p>
                                       </div>
@@ -827,19 +827,19 @@ const VerificationPage: React.FC = () => {
                                           <div className="grid grid-cols-2 gap-px bg-gray-200">
                                             <div className="bg-white p-3">
                                               <p className="text-xs text-gray-500 mb-1">English Speaking</p>
-                                              <p className="text-lg font-semibold text-gray-900">{latestClient.englishSpeaking || 0}</p>
+                                              <p className="text-lg font-semibold text-gray-900 text-right">{latestClient.englishSpeaking || 0}</p>
                                             </div>
                                             <div className="bg-white p-3">
                                               <p className="text-xs text-gray-500 mb-1">Russian Speaking</p>
-                                              <p className="text-lg font-semibold text-gray-900">{latestClient.russianSpeaking || 0}</p>
+                                              <p className="text-lg font-semibold text-gray-900 text-right">{latestClient.russianSpeaking || 0}</p>
                                             </div>
                                             <div className="bg-white p-3">
                                               <p className="text-xs text-gray-500 mb-1">Off-Peak</p>
-                                              <p className="text-lg font-semibold text-gray-900">{latestClient.offPeakClients || 0}</p>
+                                              <p className="text-lg font-semibold text-gray-900 text-right">{latestClient.offPeakClients || 0}</p>
                                             </div>
                                             <div className="bg-white p-3">
                                               <p className="text-xs text-gray-500 mb-1">Peak-Time</p>
-                                              <p className="text-lg font-semibold text-gray-900">{latestClient.peakTimeClients || 0}</p>
+                                              <p className="text-lg font-semibold text-gray-900 text-right">{latestClient.peakTimeClients || 0}</p>
                                             </div>
                                           </div>
                                         </div>
@@ -855,12 +855,15 @@ const VerificationPage: React.FC = () => {
                                     <h3 className="text-lg font-medium text-gray-900 mb-4">Sales Information</h3>
                                     <div className="space-y-6">
                                       <div className="bg-white p-4 rounded-md shadow-sm">
-                                        <p className="text-2xl font-semibold text-blue-700">
-                                          £{(latestClient.onlineMembershipsTotal || 0) + 
-                                             (latestClient.offlineMembershipsTotal || 0) + 
-                                             (latestClient.onlineVouchersTotal || 0) + 
-                                             (latestClient.paperVouchersTotal || 0)} Total
-                                        </p>
+                                        <div className="flex justify-between items-center">
+                                          <span className="text-2xl font-semibold text-blue-700">Total</span>
+                                          <p className="text-2xl font-semibold text-blue-700 text-right">
+                                            £{(latestClient.onlineMembershipsTotal || 0) + 
+                                              (latestClient.offlineMembershipsTotal || 0) + 
+                                              (latestClient.onlineVouchersTotal || 0) + 
+                                              (latestClient.paperVouchersTotal || 0)}
+                                          </p>
+                                        </div>
                                       </div>
                                       
                                       <div>
@@ -869,19 +872,19 @@ const VerificationPage: React.FC = () => {
                                           <div className="grid grid-cols-2 gap-px bg-gray-200">
                                             <div className="bg-white p-3">
                                               <p className="text-xs text-gray-500 mb-1">Online Memberships</p>
-                                              <p className="text-lg font-semibold text-gray-900">{latestClient.onlineMembershipsAmount || 0}</p>
+                                              <p className="text-lg font-semibold text-gray-900 text-right">{latestClient.onlineMembershipsAmount || 0}</p>
                                             </div>
                                             <div className="bg-white p-3">
                                               <p className="text-xs text-gray-500 mb-1">Online Memberships Total</p>
-                                              <p className="text-lg font-semibold text-gray-900">£{latestClient.onlineMembershipsTotal || 0}</p>
+                                              <p className="text-lg font-semibold text-gray-900 text-right">£{latestClient.onlineMembershipsTotal || 0}</p>
                                             </div>
                                             <div className="bg-white p-3">
                                               <p className="text-xs text-gray-500 mb-1">Offline Memberships</p>
-                                              <p className="text-lg font-semibold text-gray-900">{latestClient.offlineMembershipsAmount || 0}</p>
+                                              <p className="text-lg font-semibold text-gray-900 text-right">{latestClient.offlineMembershipsAmount || 0}</p>
                                             </div>
                                             <div className="bg-white p-3">
                                               <p className="text-xs text-gray-500 mb-1">Offline Memberships Total</p>
-                                              <p className="text-lg font-semibold text-gray-900">£{latestClient.offlineMembershipsTotal || 0}</p>
+                                              <p className="text-lg font-semibold text-gray-900 text-right">£{latestClient.offlineMembershipsTotal || 0}</p>
                                             </div>
                                           </div>
                                         </div>
@@ -889,19 +892,19 @@ const VerificationPage: React.FC = () => {
                                           <div className="grid grid-cols-2 gap-px bg-gray-200">
                                             <div className="bg-white p-3">
                                               <p className="text-xs text-gray-500 mb-1">Online Vouchers</p>
-                                              <p className="text-lg font-semibold text-gray-900">{latestClient.onlineVouchersAmount || 0}</p>
+                                              <p className="text-lg font-semibold text-gray-900 text-right">{latestClient.onlineVouchersAmount || 0}</p>
                                             </div>
                                             <div className="bg-white p-3">
                                               <p className="text-xs text-gray-500 mb-1">Online Vouchers Total</p>
-                                              <p className="text-lg font-semibold text-gray-900">£{latestClient.onlineVouchersTotal || 0}</p>
+                                              <p className="text-lg font-semibold text-gray-900 text-right">£{latestClient.onlineVouchersTotal || 0}</p>
                                             </div>
                                             <div className="bg-white p-3">
                                               <p className="text-xs text-gray-500 mb-1">Paper Vouchers</p>
-                                              <p className="text-lg font-semibold text-gray-900">{latestClient.paperVouchersAmount || 0}</p>
+                                              <p className="text-lg font-semibold text-gray-900 text-right">{latestClient.paperVouchersAmount || 0}</p>
                                             </div>
                                             <div className="bg-white p-3">
                                               <p className="text-xs text-gray-500 mb-1">Paper Vouchers Total</p>
-                                              <p className="text-lg font-semibold text-gray-900">£{latestClient.paperVouchersTotal || 0}</p>
+                                              <p className="text-lg font-semibold text-gray-900 text-right">£{latestClient.paperVouchersTotal || 0}</p>
                                             </div>
                                           </div>
                                         </div>
@@ -914,7 +917,10 @@ const VerificationPage: React.FC = () => {
                                     <h3 className="text-lg font-medium text-gray-900 mb-4">Transactions</h3>
                                     <div className="space-y-6">
                                       <div className="bg-white p-4 rounded-md shadow-sm">
-                                        <p className="text-2xl font-semibold text-green-700">£{(latestClient.yottaLinksTotal || 0)} Total</p>
+                                        <div className="flex justify-between items-center">
+                                          <span className="text-2xl font-semibold text-green-700">Total</span>
+                                          <p className="text-2xl font-semibold text-green-700 text-right">£{(latestClient.yottaLinksTotal || 0)}</p>
+                                        </div>
                                       </div>
                                       
                                       <div>
@@ -923,19 +929,19 @@ const VerificationPage: React.FC = () => {
                                           <div className="grid grid-cols-2 gap-px bg-gray-200">
                                             <div className="bg-white p-3">
                                               <p className="text-xs text-gray-500 mb-1">Yotta Link</p>
-                                              <p className="text-lg font-semibold text-gray-900">{latestClient.yottaLinksAmount || 0}</p>
+                                              <p className="text-lg font-semibold text-gray-900 text-right">{latestClient.yottaLinksAmount || 0}</p>
                                             </div>
                                             <div className="bg-white p-3">
                                               <p className="text-xs text-gray-500 mb-1">Yotta Link Total</p>
-                                              <p className="text-lg font-semibold text-gray-900">£{latestClient.yottaLinksTotal || 0}</p>
+                                              <p className="text-lg font-semibold text-gray-900 text-right">£{latestClient.yottaLinksTotal || 0}</p>
                                             </div>
                                             <div className="bg-white p-3">
                                               <p className="text-xs text-gray-500 mb-1">Yotta Widget</p>
-                                              <p className="text-lg font-semibold text-gray-900">{latestClient.yottaWidgetAmount || 0}</p>
+                                              <p className="text-lg font-semibold text-gray-900 text-right">{latestClient.yottaWidgetAmount || 0}</p>
                                             </div>
                                             <div className="bg-white p-3">
                                               <p className="text-xs text-gray-500 mb-1">Yotta Widget Total</p>
-                                              <p className="text-lg font-semibold text-gray-900">£{latestClient.yottaWidgetTotal || 0}</p>
+                                              <p className="text-lg font-semibold text-gray-900 text-right">£{latestClient.yottaWidgetTotal || 0}</p>
                                             </div>
                                           </div>
                                         </div>
@@ -1020,11 +1026,11 @@ const VerificationPage: React.FC = () => {
                                 <div className="bg-white rounded-md shadow-sm overflow-hidden">
                                   <div className="grid grid-cols-2 gap-px bg-gray-200">
                                     <div className="bg-white p-2">
-                                      <p className="text-xs text-gray-500 mb-2 ml-2">English</p>
+                                      <p className="text-xs text-gray-500 mb-2 ml-2">English Speaking</p>
                                       <p className="text-sm font-semibold text-gray-900 m-2 text-right">{weeklySummary.totalEnglishSpeaking}</p>
                                     </div>
                                     <div className="bg-white p-2">
-                                      <p className="text-xs text-gray-500 mb-2 ml-2">Russian</p>
+                                      <p className="text-xs text-gray-500 mb-2 ml-2">Russian Speaking</p>
                                       <p className="text-sm font-semibold text-gray-900 m-2 text-right">{weeklySummary.totalRussianSpeaking}</p>
                                     </div>
                                     <div className="bg-white p-2">
