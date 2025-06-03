@@ -94,6 +94,7 @@ app.post('/api/clients', authenticateToken, restrictToRoles(['admin']), (req, re
     dailyPreBookedValue,
     treatments,
     bonuses,
+    otherCosts,
     date,
   } = req.body;
 
@@ -165,6 +166,11 @@ app.post('/api/clients', authenticateToken, restrictToRoles(['admin']), (req, re
       membershipSalesBonus: 0,
       privateBookingsBonus: 0
     },
+    otherCosts: otherCosts || {
+      kitchenSalaryPaid: 0,
+      foodAndBeverageStock: 0,
+      kitchenPL: 0
+    },
     date,
     createdBy: req.user.username,
     isVerified: false,
@@ -208,6 +214,7 @@ app.put('/api/clients/:id', authenticateToken, restrictToRoles(['admin', 'head']
     dailyPreBookedValue,
     treatments,
     bonuses,
+    otherCosts,
     date,
   } = req.body;
 
@@ -222,7 +229,7 @@ app.put('/api/clients/:id', authenticateToken, restrictToRoles(['admin', 'head']
 
   // Determine which part was updated
   const isHeadDataUpdate = req.user.role === 'head' && 
-    (foodAndDrinkSales !== undefined || treatments !== undefined);
+    (foodAndDrinkSales !== undefined || treatments !== undefined || otherCosts !== undefined);
   const isSurveyUpdate = req.user.role === 'admin' || 
     (req.user.role === 'head' && !isHeadDataUpdate);
 
@@ -254,6 +261,7 @@ app.put('/api/clients/:id', authenticateToken, restrictToRoles(['admin', 'head']
     dailyPreBookedValue: dailyPreBookedValue || clients[clientIndex].dailyPreBookedValue,
     treatments: treatments || clients[clientIndex].treatments,
     bonuses: bonuses || clients[clientIndex].bonuses,
+    otherCosts: otherCosts || clients[clientIndex].otherCosts,
     date,
     isVerified: false,
     status: {

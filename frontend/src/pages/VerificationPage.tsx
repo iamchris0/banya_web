@@ -24,6 +24,7 @@ const VerificationPage: React.FC = () => {
   const [isBonusesCollapsed, setIsBonusesCollapsed] = useState(true);
   const [isWeeklySummaryCollapsed, setIsWeeklySummaryCollapsed] = useState(true);
   const [isPrebookedCollapsed, setIsPrebookedCollapsed] = useState(false);
+  const [isOtherCostsCollapsed, setIsOtherCostsCollapsed] = useState(true);
   const [weeklySummary, setWeeklySummary] = useState<any>(null);
   const pollingIntervalRef = useRef<number>();
   const [canNavigateNext, setCanNavigateNext] = useState(false);
@@ -1271,6 +1272,51 @@ const VerificationPage: React.FC = () => {
                               </span>
                             </div>
                           </div>
+                        </div>
+                      )}
+                    </div>
+                  </Card>
+
+                  {/* Other Costs Block */}
+                  <Card className="bg-white border border-gray-200 shadow-sm">
+                    <div className="p-6">
+                      <div className="flex justify-between items-center mb-4">
+                        <div className="flex items-center space-x-3">
+                          <button
+                            onClick={() => setIsOtherCostsCollapsed(!isOtherCostsCollapsed)}
+                            className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                          >
+                            {isOtherCostsCollapsed ? <FaChevronDown size={16} /> : <FaChevronUp size={16} />}
+                          </button>
+                          <h2 className="text-xl font-semibold text-gray-900">Other Costs</h2>
+                        </div>
+                      </div>
+                      {!isOtherCostsCollapsed && (
+                        <div className="grid grid-cols-3 gap-4">
+                          {[
+                            { key: 'kitchenSalaryPaid', label: 'Kitchen Salary Paid' },
+                            { key: 'foodAndBeverageStock', label: 'F&B Stock' },
+                            { key: 'kitchenPL', label: 'Kitchen PL' }
+                          ].map(({ key, label }) => (
+                            <div key={key} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                              <span className="text-sm font-medium text-gray-700">{label}</span>
+                              <input
+                                type="number"
+                                value={latestClient?.otherCosts?.[key as keyof NonNullable<typeof latestClient.otherCosts>] || 0}
+                                onChange={(e) => {
+                                  const value = parseFloat(e.target.value) || 0;
+                                  const updatedOtherCosts = {
+                                    ...latestClient?.otherCosts,
+                                    [key]: value
+                                  } as NonNullable<typeof latestClient.otherCosts>;
+                                  handleClientUpdate({ otherCosts: updatedOtherCosts });
+                                }}
+                                className="w-32 px-2 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+                                min="0"
+                                step="0.01"
+                              />
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>

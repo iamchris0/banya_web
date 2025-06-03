@@ -94,6 +94,11 @@ export interface ClientInfo {
     membershipSalesBonus: number;
     privateBookingsBonus: number;
   };
+  otherCosts?: {
+    kitchenSalaryPaid: number;
+    foodAndBeverageStock: number;
+    kitchenPL: number;
+  };
   date: string;
   createdBy: string;
   isVerified: boolean;

@@ -4,8 +4,6 @@ import Card from '../components/common/Card';
 import SurveyModal from './AddInformationPage';
 import { ClientInfo } from '../types';
 import { FaArrowLeft, FaArrowRight, FaRegEdit, FaCheck } from 'react-icons/fa';
-import DatePicker from 'react-datepicker';
-import "react-datepicker/dist/react-datepicker.css";
 
 const DailyDataPage: React.FC = () => {
   const { token, user } = useAuth();
@@ -17,10 +15,6 @@ const DailyDataPage: React.FC = () => {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [direction, setDirection] = useState<'left' | 'right' | null>(null);
   const pollingIntervalRef = useRef<number>();
-  const [canNavigateNext, setCanNavigateNext] = useState(false);
-  const [canNavigatePrev, setCanNavigatePrev] = useState(true);
-  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
-  const datePickerRef = useRef<HTMLDivElement>(null);
 
   const fetchClients = async () => {
     if (!token) {
@@ -83,24 +77,7 @@ const DailyDataPage: React.FC = () => {
     });
   };
 
-  const checkNavigationAvailability = () => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const nextDay = new Date(selectedDate);
-    nextDay.setDate(nextDay.getDate() + 1);
-    nextDay.setHours(0, 0, 0, 0);
-    setCanNavigateNext(nextDay.getTime() <= today.getTime());
-    setCanNavigatePrev(true);
-  };
-
-  useEffect(() => {
-    checkNavigationAvailability();
-  }, [selectedDate]);
-
   const handlePrevDay = () => {
-    if (!canNavigatePrev) return;
-
     setIsTransitioning(true);
     setDirection('left');
     const newDate = new Date(selectedDate);
@@ -113,12 +90,20 @@ const DailyDataPage: React.FC = () => {
   };
 
   const handleNextDay = () => {
-    if (!canNavigateNext) return;
-
-    setIsTransitioning(true);
-    setDirection('right');
     const nextDate = new Date(selectedDate);
     nextDate.setDate(nextDate.getDate() + 1);
+    
+    // Check if the next date is more than 1 day ahead of current date
+    const today = new Date();
+    const maxAllowedDate = new Date(today);
+    maxAllowedDate.setDate(maxAllowedDate.getDate() + 1);
+    
+    if (nextDate >= maxAllowedDate) {
+      return; // Don't allow navigation beyond tomorrow
+    }
+    
+    setIsTransitioning(true);
+    setDirection('right');
     setTimeout(() => {
       setSelectedDate(nextDate);
       setIsTransitioning(false);
@@ -126,24 +111,15 @@ const DailyDataPage: React.FC = () => {
     }, 200);
   };
 
-  const handleDateChange = (date: Date | null) => {
-    if (!date) return;
-
+  const canNavigateToNextDay = (date: Date) => {
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const maxAllowedDate = new Date(today);
+    maxAllowedDate.setDate(maxAllowedDate.getDate() + 1);
     
-    // Don't allow future dates
-    if (date > today) {
-      return;
-    }
-
-    setIsTransitioning(true);
-    setDirection(date > selectedDate ? 'right' : 'left');
-    setTimeout(() => {
-      setSelectedDate(date);
-      setIsTransitioning(false);
-      setDirection(null);
-    }, 200);
+    const nextDate = new Date(date);
+    nextDate.setDate(nextDate.getDate() + 1);
+    
+    return nextDate < maxAllowedDate;
   };
 
   const handleEdit = (client: ClientInfo) => {
@@ -202,69 +178,20 @@ const DailyDataPage: React.FC = () => {
   const filteredClients = filterClientsByDate(clients, selectedDate);
   const latestClient = filteredClients[0];
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (datePickerRef.current && !datePickerRef.current.contains(event.target as Node)) {
-        setIsDatePickerOpen(false);
-      }
-    };
-
-    if (isDatePickerOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isDatePickerOpen]);
-
   return (
     <div className="flex flex-col h-full bg-gray-50 text-gray-800 p-6">
       <div className="flex-grow w-full max-w-7xl mx-auto">
         {/* Date Navigation */}
         <div className="mb-6 flex items-center justify-center space-x-4">
-          <button 
-            onClick={handlePrevDay} 
-            className={`p-2 transition-colors ${
-              canNavigatePrev 
-                ? 'text-gray-800 hover:text-green-900' 
-                : 'text-gray-400 cursor-not-allowed'
-            }`}
-            disabled={!canNavigatePrev}
-          >
+          <button onClick={handlePrevDay} className="p-2 text-gray-800 hover:text-green-900">
             <FaArrowLeft size={20} />
           </button>
-          <div className="relative" ref={datePickerRef}>
-            <button
-              onClick={() => setIsDatePickerOpen(!isDatePickerOpen)}
-              className="text-xl font-medium hover:text-green-900 transition-colors px-2 py-1 rounded"
-            >
-              {formatDate(selectedDate)}
+          <span className="text-xl font-medium">{formatDate(selectedDate)}</span>
+          {canNavigateToNextDay(selectedDate) && (
+            <button onClick={handleNextDay} className="p-2 text-gray-800 hover:text-green-900">
+              <FaArrowRight size={20} />
             </button>
-            {isDatePickerOpen && (
-              <div className="absolute z-50 mt-2">
-                <DatePicker
-                  selected={selectedDate}
-                  onChange={handleDateChange}
-                  maxDate={new Date()}
-                  inline
-                  onCalendarClose={() => setIsDatePickerOpen(false)}
-                  className="shadow-lg rounded-lg border border-gray-200"
-                />
-              </div>
-            )}
-          </div>
-          <button 
-            onClick={handleNextDay} 
-            className={`p-2 transition-colors ${
-              canNavigateNext 
-                ? 'text-gray-800 hover:text-green-900' 
-                : 'text-gray-400 cursor-not-allowed'
-            }`}
-            disabled={!canNavigateNext}
-          >
-            <FaArrowRight size={20} />
-          </button>
+          )}
         </div>
 
         {/* Content with Transition */}
