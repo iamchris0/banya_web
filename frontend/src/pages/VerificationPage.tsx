@@ -593,7 +593,7 @@ const VerificationPage: React.FC = () => {
                                 >
                                   {isHeadDataCollapsed ? <FaChevronDown size={16} /> : <FaChevronUp size={16} />}
                                 </button>
-                                <h2 className="text-xl font-semibold text-gray-900">Head Data</h2>
+                                <h2 className="text-xl font-semibold text-gray-900">F&B Sales + Treatments</h2>
                               </div>
                               <div className="flex items-center space-x-3">
                                 <span
@@ -621,7 +621,7 @@ const VerificationPage: React.FC = () => {
                               <div className="space-y-8">
                                 {/* Food and Drink Sales */}
                                 <div className="bg-gray-50 p-6 rounded-lg">
-                                  <h3 className="text-lg font-medium text-gray-900 mb-4">Food and Drink Sales</h3>
+                                  <h3 className="text-lg font-medium text-gray-900 mb-4">F & B Sales</h3>
                                   <div className="bg-white p-4 rounded-md shadow-sm">
                                     <div className="flex items-center space-x-3">
                                       <span className="text-2xl font-semibold text-blue-700">£</span>
