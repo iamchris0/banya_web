@@ -4,7 +4,6 @@ import Layout from './components/layout/Layout';
 import DashboardPage from './pages/DashboardPage';
 import DailyDataPage from './pages/DailyDataPage';
 import VerificationPage from './pages/VerificationPage';
-import WeeklyDataPage from './pages/WeeklyDataPage';
 import LoginPage from './pages/LoginPage';
 import ProtectedRoute from './routes/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
@@ -39,14 +38,6 @@ const App: React.FC = () => {
                 element={
                   <ProtectedRoute allowedRoles={['head']}>
                     <VerificationPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/weekly-data"
-                element={
-                  <ProtectedRoute allowedRoles={['boss']}>
-                    <WeeklyDataPage />
                   </ProtectedRoute>
                 }
               />
