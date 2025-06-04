@@ -218,9 +218,9 @@ const DailyDataPage: React.FC = () => {
                 <div className="flex justify-between items-center">
                   <div className="flex-1">
                     <span
-                      className={`inline-block px-4 py-1 rounded-full text-sm font-medium pl-4 ${getStatusColor(latestClient.status.survey)}`}
+                      className={`inline-block px-4 py-1 rounded-full text-sm font-medium pl-4 ${getStatusColor(latestClient.status)}`}
                     >
-                      Status: {latestClient.status.survey.charAt(0).toUpperCase() + latestClient.status.survey.slice(1)}
+                      Status: {latestClient.status.charAt(0).toUpperCase() + latestClient.status.slice(1)}
                     </span>
                   </div>
                   <div className="flex space-x-2 ml-4">
@@ -237,12 +237,12 @@ const DailyDataPage: React.FC = () => {
                           <button
                             onClick={() => handleConfirm(latestClient)}
                             className={`p-2 transition-colors ${
-                              latestClient.id && latestClient.status.survey === 'edited'
+                              latestClient.id && latestClient.status === 'edited'
                                 ? 'text-green-700 hover:text-green-900'
                                 : 'text-gray-400 cursor-not-allowed'
                             }`}
                             title="Confirm Survey"
-                            disabled={!latestClient.id || latestClient.status.survey !== 'edited'}
+                            disabled={!latestClient.id || latestClient.status !== 'edited'}
                           >
                             <FaCheck size={20} />
                           </button>

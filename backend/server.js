@@ -13,9 +13,9 @@ app.use(bodyParser.json());
 
 // Hardcoded admin user
 const users = [
-  { id: 1, username: 'reception', password: '123', role: 'admin' },
-  { id: 2, username: 'general operation', password: '123', role: 'head' },
-  { id: 3, username: 'elena', password: '123', role: 'boss' },
+  { id: 1, username: 'admin', password: '123', role: 'admin' },
+  { id: 2, username: 'irina', password: '123', role: 'head' },
+  { id: 3, username: 'elena', password: '123', role: 'head' },
   { id: 4, username: 'ksenia', password: '123', role: 'boss' },
 ];
 
@@ -29,6 +29,76 @@ let clients = [];
 
 // Track users per page
 const usersByPage = new Map();
+
+// In-memory storage for head data
+let headData = [];
+
+// Initialize head data fields with pending status
+const initializeHeadDataFields = (date) => {
+  return {
+    id: headData.length + 1,
+    date,
+    foodAndDrinkSales: 0,
+    treatments: {
+      entryOnly: { done: false, amount: 0 },
+      parenie: { done: false, amount: 0 },
+      aromaPark: { done: false, amount: 0 },
+      iceWrap: { done: false, amount: 0 },
+      scrub: { done: false, amount: 0 },
+      mudMask: { done: false, amount: 0 },
+      mudWrap: { done: false, amount: 0 },
+      aloeVera: { done: false, amount: 0 },
+      massage_25: { done: false, amount: 0 },
+      massage_50: { done: false, amount: 0 }
+    },
+    preBookedData: {
+      preBookedValueNextWeek: 0,
+      preBookedPeopleNextWeek: 0,
+      dailyPreBookedPeople: {
+        monday: 0,
+        tuesday: 0,
+        wednesday: 0,
+        thursday: 0,
+        friday: 0,
+        saturday: 0,
+        sunday: 0
+      },
+      dailyPreBookedValue: {
+        monday: 0,
+        tuesday: 0,
+        wednesday: 0,
+        thursday: 0,
+        friday: 0,
+        saturday: 0,
+        sunday: 0
+      }
+    },
+    bonuses: {
+      kitchenBonus: 0,
+      ondeskSalesBonus: 0,
+      miscBonus: 0,
+      allPerformanceBonus: 0,
+      vouchersSalesBonus: 0,
+      membershipSalesBonus: 0,
+      privateBookingsBonus: 0
+    },
+    otherCosts: {
+      kitchenSalaryPaid: 0,
+      foodAndBeverageStock: 0,
+      kitchenPL: 0
+    },
+    createdBy: '',
+    isVerified: false,
+    status: {
+      headData: 'pending',
+      foodAndDrinkSales: 'pending',
+      treatments: 'pending',
+      preBookedData: 'pending',
+      bonuses: 'pending',
+      otherCosts: 'pending'
+    }
+  };
+};
 
 // Middleware to verify JWT
 const authenticateToken = (req, res, next) => {
@@ -90,16 +160,34 @@ app.post('/api/clients', authenticateToken, restrictToRoles(['admin']), (req, re
     yottaLinksTotal,
     yottaWidgetAmount,
     yottaWidgetTotal,
-    dailyPreBooked,
-    dailyPreBookedValue,
-    treatments,
-    bonuses,
-    otherCosts,
     date,
   } = req.body;
 
   if (!amountOfPeople || !date) {
     return res.status(400).json({ message: 'Missing required fields: Amount Of People or Date' });
+  }
+
+  // Validate gender distribution
+  const totalGender = Number(male || 0) + Number(female || 0) + Number(otherGender || 0);
+  if (totalGender !== Number(amountOfPeople)) {
+    return res.status(400).json({ message: 'Sum of gender counts must equal total number of people' });
+  }
+
+  // Validate language distribution
+  const totalLanguage = Number(englishSpeaking || 0) + Number(russianSpeaking || 0);
+  if (totalLanguage > Number(amountOfPeople)) {
+    return res.status(400).json({ message: 'Total language speakers cannot exceed total number of people' });
+  }
+
+  // Validate timing distribution
+  const totalTiming = Number(offPeakClients || 0) + Number(peakTimeClients || 0);
+  if (totalTiming !== Number(amountOfPeople)) {
+    return res.status(400).json({ message: 'Sum of timing distribution must equal total number of people' });
+  }
+
+  // Validate new clients
+  if (Number(newClients || 0) > Number(amountOfPeople)) {
+    return res.status(400).json({ message: 'Number of new clients cannot exceed total number of people' });
   }
 
   const client = {
@@ -125,59 +213,10 @@ app.post('/api/clients', authenticateToken, restrictToRoles(['admin']), (req, re
     yottaLinksTotal: Number(yottaLinksTotal) || 0,
     yottaWidgetAmount: Number(yottaWidgetAmount) || 0,
     yottaWidgetTotal: Number(yottaWidgetTotal) || 0,
-    
-    foodAndDrinkSales: 0,
-    dailyPreBooked: dailyPreBooked || {
-      monday: 0,
-      tuesday: 0,
-      wednesday: 0,
-      thursday: 0,
-      friday: 0,
-      saturday: 0,
-      sunday: 0
-    },
-    dailyPreBookedValue: dailyPreBookedValue || {
-      monday: 0,
-      tuesday: 0,
-      wednesday: 0,
-      thursday: 0,
-      friday: 0,
-      saturday: 0,
-      sunday: 0
-    },
-    treatments: treatments || {
-      entryOnly: { done: false, amount: 0 },
-      parenie: { done: false, amount: 0 },
-      aromaPark: { done: false, amount: 0 },
-      iceWrap: { done: false, amount: 0 },
-      scrub: { done: false, amount: 0 },
-      mudMask: { done: false, amount: 0 },
-      mudWrap: { done: false, amount: 0 },
-      aloeVera: { done: false, amount: 0 },
-      massage_25: { done: false, amount: 0 },
-      massage_50: { done: false, amount: 0 }
-    },
-    bonuses: bonuses || {
-      kitchenBonus: 0,
-      ondeskSalesBonus: 0,
-      miscBonus: 0,
-      allPerformanceBonus: 0,
-      vouchersSalesBonus: 0,
-      membershipSalesBonus: 0,
-      privateBookingsBonus: 0
-    },
-    otherCosts: otherCosts || {
-      kitchenSalaryPaid: 0,
-      foodAndBeverageStock: 0,
-      kitchenPL: 0
-    },
     date,
     createdBy: req.user.username,
     isVerified: false,
-    status: {
-      survey: 'edited',
-      headData: 'edited'
-    }
+    status: 'edited'
   };
 
   clients.push(client);
@@ -209,12 +248,6 @@ app.put('/api/clients/:id', authenticateToken, restrictToRoles(['admin', 'head']
     yottaLinksTotal,
     yottaWidgetAmount,
     yottaWidgetTotal,
-    foodAndDrinkSales,
-    dailyPreBooked,
-    dailyPreBookedValue,
-    treatments,
-    bonuses,
-    otherCosts,
     date,
   } = req.body;
 
@@ -226,12 +259,6 @@ app.put('/api/clients/:id', authenticateToken, restrictToRoles(['admin', 'head']
   if (!amountOfPeople || !date) {
     return res.status(400).json({ message: 'Missing required fields: Amount Of People or Date' });
   }
-
-  // Determine which part was updated
-  const isHeadDataUpdate = req.user.role === 'head' && 
-    (foodAndDrinkSales !== undefined || treatments !== undefined || otherCosts !== undefined);
-  const isSurveyUpdate = req.user.role === 'admin' || 
-    (req.user.role === 'head' && !isHeadDataUpdate);
 
   const updatedClient = {
     ...clients[clientIndex],
@@ -256,44 +283,31 @@ app.put('/api/clients/:id', authenticateToken, restrictToRoles(['admin', 'head']
     yottaLinksTotal: Number(yottaLinksTotal) || 0,
     yottaWidgetAmount: Number(yottaWidgetAmount) || 0,
     yottaWidgetTotal: Number(yottaWidgetTotal) || 0,
-    foodAndDrinkSales: Number(foodAndDrinkSales) || 0,
-    dailyPreBooked: dailyPreBooked || clients[clientIndex].dailyPreBooked,
-    dailyPreBookedValue: dailyPreBookedValue || clients[clientIndex].dailyPreBookedValue,
-    treatments: treatments || clients[clientIndex].treatments,
-    bonuses: bonuses || clients[clientIndex].bonuses,
-    otherCosts: otherCosts || clients[clientIndex].otherCosts,
     date,
     isVerified: false,
-    status: {
-      ...clients[clientIndex].status,
-      survey: isSurveyUpdate ? 'edited' : clients[clientIndex].status.survey,
-      headData: isHeadDataUpdate ? 'edited' : clients[clientIndex].status.headData
-    }
+    status: 'edited'
   };
 
   clients[clientIndex] = updatedClient;
   res.json({ message: 'Client information updated', client: updatedClient });
 });
 
-// Verify client information
+// Verify client information (Receipt Data)
 app.patch('/api/clients/:id/verify', authenticateToken, restrictToRoles(['head']), (req, res) => {
   const { id } = req.params;
-  const { isVerified, verifyType } = req.body;
+  const { isVerified } = req.body;
 
   const clientIndex = clients.findIndex(client => client.id === Number(id));
   if (clientIndex === -1) {
-    return res.status(404).json({ message: 'Invoice not found' });
+    return res.status(404).json({ message: 'Client not found' });
   }
 
   if (typeof isVerified !== 'boolean') {
     return res.status(400).json({ message: 'Invalid isVerified value' });
   }
 
-  if (!verifyType || !['survey', 'headData'].includes(verifyType)) {
-    return res.status(400).json({ message: 'Invalid verifyType. Must be either "survey" or "headData"' });
-  }
-
-  clients[clientIndex].status[verifyType] = isVerified ? 'Confirmed' : 'edited';
+  // Update the survey status to Confirmed
+  clients[clientIndex].status = isVerified ? 'Confirmed' : 'edited';
   res.json({ message: 'Client verification status updated', client: clients[clientIndex] });
 });
 
@@ -309,146 +323,6 @@ app.get('/api/clients', authenticateToken, (req, res) => {
   }
 
   res.json({ clients: filteredClients });
-});
-
-// In-memory storage for weekly data
-let weeklyData = [];
-
-// Submit or update weekly data
-app.post('/api/weekly-data', authenticateToken, restrictToRoles(['boss']), (req, res) => {
-  const {
-    staffBonus,
-    onDeskBonus,
-    voucherSalesBonus,
-    privateBookingBonus,
-    preBookedValueNextWeek,
-    preBookedPeopleNextWeek,
-    dailyPreBooked,
-    dailyPreBookedPeople,
-    date,
-    createdBy,
-  } = req.body;
-
-  if (!date) {
-    return res.status(400).json({ message: 'Missing required field: Date' });
-  }
-
-  // Normalize date to week start (Monday)
-  const weekStart = new Date(date);
-  const dayOfWeek = weekStart.getDay();
-  const diff = weekStart.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
-  weekStart.setDate(diff);
-  const weekStartStr = weekStart.toISOString().split('T')[0];
-
-  // Check if the week is more than 1 week ahead
-  const today = new Date();
-  const currentWeekStart = new Date(today);
-  const currentDayOfWeek = today.getDay();
-  const currentDiff = today.getDate() - currentDayOfWeek + (currentDayOfWeek === 0 ? -6 : 1);
-  currentWeekStart.setDate(currentDiff);
-  
-  const maxAllowedWeek = new Date(currentWeekStart);
-  maxAllowedWeek.setDate(maxAllowedWeek.getDate() + 7);
-  
-  if (weekStart > maxAllowedWeek) {
-    return res.status(400).json({ message: 'Cannot submit data for more than 1 week in advance' });
-  }
-
-  const existingDataIndex = weeklyData.findIndex(item => item.date === weekStartStr);
-
-  const data = {
-    id: existingDataIndex === -1 ? weeklyData.length + 1 : weeklyData[existingDataIndex].id,
-    staffBonus: Number(staffBonus) || 0,
-    onDeskBonus: Number(onDeskBonus) || 0,
-    voucherSalesBonus: Number(voucherSalesBonus) || 0,
-    privateBookingBonus: Number(privateBookingBonus) || 0,
-    preBookedValueNextWeek: Number(preBookedValueNextWeek) || 0,
-    preBookedPeopleNextWeek: Number(preBookedPeopleNextWeek) || 0,
-    dailyPreBooked: dailyPreBooked || {},
-    dailyPreBookedPeople: dailyPreBookedPeople || {},
-    date: weekStartStr,
-    createdBy: createdBy || req.user.username,
-    isVerified: false,
-    status: existingDataIndex === -1 ? 'edited' : 'Confirmed',
-  };
-
-  if (existingDataIndex === -1) {
-    weeklyData.push(data);
-  } else {
-    weeklyData[existingDataIndex] = data;
-  }
-
-  res.json({ message: 'Weekly data submitted', weeklyData: data });
-});
-
-// Update weekly data
-app.put('/api/weekly-data/:id', authenticateToken, restrictToRoles(['boss']), (req, res) => {
-  const { id } = req.params;
-  const {
-    staffBonus,
-    onDeskBonus,
-    voucherSalesBonus,
-    privateBookingBonus,
-    preBookedValueNextWeek,
-    preBookedPeopleNextWeek,
-    dailyPreBooked,
-    dailyPreBookedPeople,
-    date,
-    createdBy,
-  } = req.body;
-
-  const dataIndex = weeklyData.findIndex(item => item.id === parseInt(id));
-  if (dataIndex === -1) {
-    return res.status(404).json({ message: 'Weekly data not found' });
-  }
-
-  const updatedData = {
-    ...weeklyData[dataIndex],
-    staffBonus: Number(staffBonus) || 0,
-    onDeskBonus: Number(onDeskBonus) || 0,
-    voucherSalesBonus: Number(voucherSalesBonus) || 0,
-    privateBookingBonus: Number(privateBookingBonus) || 0,
-    preBookedValueNextWeek: Number(preBookedValueNextWeek) || 0,
-    preBookedPeopleNextWeek: Number(preBookedPeopleNextWeek) || 0,
-    dailyPreBooked: dailyPreBooked || {},
-    dailyPreBookedPeople: dailyPreBookedPeople || {},
-    date: date || weeklyData[dataIndex].date,
-    createdBy: createdBy || weeklyData[dataIndex].createdBy,
-    status: 'edited',
-  };
-
-  weeklyData[dataIndex] = updatedData;
-  res.json({ message: 'Weekly data updated', weeklyData: updatedData });
-});
-
-// Verify weekly data
-app.patch('/api/weekly-data/:id/verify', authenticateToken, restrictToRoles(['boss']), (req, res) => {
-  const { id } = req.params;
-  const { isVerified, status } = req.body;
-
-  const dataIndex = weeklyData.findIndex(item => item.id === Number(id));
-  if (dataIndex === -1) {
-    return res.status(404).json({ message: 'Weekly data not found' });
-  }
-
-  if (typeof isVerified !== 'boolean') {
-    return res.status(400).json({ message: 'Invalid isVerified value' });
-  }
-
-  weeklyData[dataIndex].isVerified = isVerified;
-  weeklyData[dataIndex].status = status || 'Confirmed';
-  res.json({ message: 'Weekly data verification status updated', weeklyData: weeklyData[dataIndex] });
-});
-
-// Get weekly data for a specific week
-app.get('/api/weekly-data', authenticateToken, restrictToRoles(['boss']), (req, res) => {
-  const { weekStart } = req.query;
-  if (!weekStart) {
-    return res.status(400).json({ message: 'Missing weekStart query parameter' });
-  }
-
-  const weekData = weeklyData.find(item => item.date === weekStart) || null;
-  res.json({ weeklyData: weekData });
 });
 
 // Get active users for a page
@@ -491,29 +365,60 @@ app.get('/api/clients/weekly-summary', authenticateToken, (req, res) => {
     return res.status(400).json({ message: 'Missing weekStart query parameter' });
   }
 
-  // Convert weekStart to Date object
+  // Convert weekStart to Date object and set time to midnight UTC
   const startDate = new Date(weekStart);
+  startDate.setUTCHours(0, 0, 0, 0);
   const endDate = new Date(startDate);
-  endDate.setDate(endDate.getDate() + 6); // Add 6 days to get the end of the week
+  endDate.setUTCDate(endDate.getUTCDate() + 6); // Add 6 days to get the end of the week
+  endDate.setUTCHours(23, 59, 59, 999); // Set to end of day
 
-  // Filter clients for the specified week
+  // Filter clients and head data for the specified week
   const weekClients = clients.filter(client => {
     const clientDate = new Date(client.date);
+    clientDate.setUTCHours(0, 0, 0, 0);
     return clientDate >= startDate && clientDate <= endDate;
+  });
+
+  const weekHeadData = headData.filter(data => {
+    const dataDate = new Date(data.date);
+    dataDate.setUTCHours(0, 0, 0, 0);
+    return dataDate >= startDate && dataDate <= endDate;
   });
 
   // Create a map for daily data
   const dailyData = {};
   for (let i = 0; i < 7; i++) {
     const currentDate = new Date(startDate);
-    currentDate.setDate(currentDate.getDate() + i);
+    currentDate.setUTCDate(currentDate.getUTCDate() + i);
+    currentDate.setUTCHours(0, 0, 0, 0);
     const formattedDate = formatDate(currentDate);
     
-    // Filter clients for this specific day
+    // Filter clients and head data for this specific day
     const dayClients = weekClients.filter(client => {
       const clientDate = new Date(client.date);
-      return clientDate.toDateString() === currentDate.toDateString();
+      clientDate.setUTCHours(0, 0, 0, 0);
+      return clientDate.getTime() === currentDate.getTime();
     });
+
+    const dayHeadData = weekHeadData.filter(data => {
+      const dataDate = new Date(data.date);
+      dataDate.setUTCHours(0, 0, 0, 0);
+      return dataDate.getTime() === currentDate.getTime();
+    });
+
+    // Initialize treatments with default values
+    const defaultTreatments = {
+      entryOnly: { value: 0 },
+      parenie: { value: 0 },
+      aromaPark: { value: 0 },
+      iceWrap: { value: 0 },
+      scrub: { value: 0 },
+      mudMask: { value: 0 },
+      mudWrap: { value: 0 },
+      aloeVera: { value: 0 },
+      massage_25: { value: 0 },
+      massage_50: { value: 0 }
+    };
 
     dailyData[formattedDate] = {
       visitors: dayClients.reduce((sum, client) => sum + (client.amountOfPeople || 0), 0),
@@ -548,18 +453,38 @@ app.get('/api/clients/weekly-summary', authenticateToken, (req, res) => {
         amount: dayClients.reduce((sum, client) => sum + (client.yottaWidgetAmount || 0), 0),
         value: dayClients.reduce((sum, client) => sum + (client.yottaWidgetTotal || 0), 0)
       },
-      foodAndDrink: dayClients.reduce((sum, client) => sum + (client.foodAndDrinkSales || 0), 0),
+      foodAndDrink: dayHeadData.reduce((sum, data) => sum + (data.foodAndDrinkSales || 0), 0),
       treatments: {
-        entryOnly: dayClients.reduce((sum, client) => sum + ((client.treatments?.entryOnly?.amount || 0) * (client.treatments?.entryOnly?.done ? 1 : 0)), 0),
-        parenie: dayClients.reduce((sum, client) => sum + ((client.treatments?.parenie?.amount || 0) * (client.treatments?.parenie?.done ? 1 : 0)), 0),
-        aromaPark: dayClients.reduce((sum, client) => sum + ((client.treatments?.aromaPark?.amount || 0) * (client.treatments?.aromaPark?.done ? 1 : 0)), 0),
-        iceWrap: dayClients.reduce((sum, client) => sum + ((client.treatments?.iceWrap?.amount || 0) * (client.treatments?.iceWrap?.done ? 1 : 0)), 0),
-        scrub: dayClients.reduce((sum, client) => sum + ((client.treatments?.scrub?.amount || 0) * (client.treatments?.scrub?.done ? 1 : 0)), 0),
-        mudMask: dayClients.reduce((sum, client) => sum + ((client.treatments?.mudMask?.amount || 0) * (client.treatments?.mudMask?.done ? 1 : 0)), 0),
-        mudWrap: dayClients.reduce((sum, client) => sum + ((client.treatments?.mudWrap?.amount || 0) * (client.treatments?.mudWrap?.done ? 1 : 0)), 0),
-        aloeVera: dayClients.reduce((sum, client) => sum + ((client.treatments?.aloeVera?.amount || 0) * (client.treatments?.aloeVera?.done ? 1 : 0)), 0),
-        massage_25: dayClients.reduce((sum, client) => sum + ((client.treatments?.massage_25?.amount || 0) * (client.treatments?.massage_25?.done ? 1 : 0)), 0),
-        massage_50: dayClients.reduce((sum, client) => sum + ((client.treatments?.massage_50?.amount || 0) * (client.treatments?.massage_50?.done ? 1 : 0)), 0)
+        entryOnly: { 
+          value: dayHeadData.reduce((sum, data) => sum + ((data.treatments?.entryOnly?.amount || 0) * (data.treatments?.entryOnly?.done ? 1 : 0)), 0)
+        },
+        parenie: { 
+          value: dayHeadData.reduce((sum, data) => sum + ((data.treatments?.parenie?.amount || 0) * (data.treatments?.parenie?.done ? 1 : 0)), 0)
+        },
+        aromaPark: { 
+          value: dayHeadData.reduce((sum, data) => sum + ((data.treatments?.aromaPark?.amount || 0) * (data.treatments?.aromaPark?.done ? 1 : 0)), 0)
+        },
+        iceWrap: { 
+          value: dayHeadData.reduce((sum, data) => sum + ((data.treatments?.iceWrap?.amount || 0) * (data.treatments?.iceWrap?.done ? 1 : 0)), 0)
+        },
+        scrub: { 
+          value: dayHeadData.reduce((sum, data) => sum + ((data.treatments?.scrub?.amount || 0) * (data.treatments?.scrub?.done ? 1 : 0)), 0)
+        },
+        mudMask: { 
+          value: dayHeadData.reduce((sum, data) => sum + ((data.treatments?.mudMask?.amount || 0) * (data.treatments?.mudMask?.done ? 1 : 0)), 0)
+        },
+        mudWrap: { 
+          value: dayHeadData.reduce((sum, data) => sum + ((data.treatments?.mudWrap?.amount || 0) * (data.treatments?.mudWrap?.done ? 1 : 0)), 0)
+        },
+        aloeVera: { 
+          value: dayHeadData.reduce((sum, data) => sum + ((data.treatments?.aloeVera?.amount || 0) * (data.treatments?.aloeVera?.done ? 1 : 0)), 0)
+        },
+        massage_25: { 
+          value: dayHeadData.reduce((sum, data) => sum + ((data.treatments?.massage_25?.amount || 0) * (data.treatments?.massage_25?.done ? 1 : 0)), 0)
+        },
+        massage_50: { 
+          value: dayHeadData.reduce((sum, data) => sum + ((data.treatments?.massage_50?.amount || 0) * (data.treatments?.massage_50?.done ? 1 : 0)), 0)
+        }
       }
     };
   }
@@ -604,25 +529,189 @@ app.get('/api/clients/weekly-summary', authenticateToken, (req, res) => {
     },
     
     // Food and drink sales
-    totalFoodAndDrink: weekClients.reduce((sum, client) => sum + (client.foodAndDrinkSales || 0), 0),
+    totalFoodAndDrink: weekHeadData.reduce((sum, data) => sum + (data.foodAndDrinkSales || 0), 0),
     
     // Treatments summary
     treatments: {
-      entryOnly: weekClients.reduce((sum, client) => sum + ((client.treatments?.entryOnly?.amount || 0) * (client.treatments?.entryOnly?.done ? 1 : 0)), 0),
-      parenie: weekClients.reduce((sum, client) => sum + ((client.treatments?.parenie?.amount || 0) * (client.treatments?.parenie?.done ? 1 : 0)), 0),
-      aromaPark: weekClients.reduce((sum, client) => sum + ((client.treatments?.aromaPark?.amount || 0) * (client.treatments?.aromaPark?.done ? 1 : 0)), 0),
-      iceWrap: weekClients.reduce((sum, client) => sum + ((client.treatments?.iceWrap?.amount || 0) * (client.treatments?.iceWrap?.done ? 1 : 0)), 0),
-      scrub: weekClients.reduce((sum, client) => sum + ((client.treatments?.scrub?.amount || 0) * (client.treatments?.scrub?.done ? 1 : 0)), 0),
-      mudMask: weekClients.reduce((sum, client) => sum + ((client.treatments?.mudMask?.amount || 0) * (client.treatments?.mudMask?.done ? 1 : 0)), 0),
-      mudWrap: weekClients.reduce((sum, client) => sum + ((client.treatments?.mudWrap?.amount || 0) * (client.treatments?.mudWrap?.done ? 1 : 0)), 0),
-      aloeVera: weekClients.reduce((sum, client) => sum + ((client.treatments?.aloeVera?.amount || 0) * (client.treatments?.aloeVera?.done ? 1 : 0)), 0),
-      massage_25: weekClients.reduce((sum, client) => sum + ((client.treatments?.massage_25?.amount || 0) * (client.treatments?.massage_25?.done ? 1 : 0)), 0),
-      massage_50: weekClients.reduce((sum, client) => sum + ((client.treatments?.massage_50?.amount || 0) * (client.treatments?.massage_50?.done ? 1 : 0)), 0)
+      entryOnly: { 
+        value: weekHeadData.reduce((sum, data) => sum + ((data.treatments?.entryOnly?.amount || 0) * (data.treatments?.entryOnly?.done ? 1 : 0)), 0)
+      },
+      parenie: { 
+        value: weekHeadData.reduce((sum, data) => sum + ((data.treatments?.parenie?.amount || 0) * (data.treatments?.parenie?.done ? 1 : 0)), 0)
+      },
+      aromaPark: { 
+        value: weekHeadData.reduce((sum, data) => sum + ((data.treatments?.aromaPark?.amount || 0) * (data.treatments?.aromaPark?.done ? 1 : 0)), 0)
+      },
+      iceWrap: { 
+        value: weekHeadData.reduce((sum, data) => sum + ((data.treatments?.iceWrap?.amount || 0) * (data.treatments?.iceWrap?.done ? 1 : 0)), 0)
+      },
+      scrub: { 
+        value: weekHeadData.reduce((sum, data) => sum + ((data.treatments?.scrub?.amount || 0) * (data.treatments?.scrub?.done ? 1 : 0)), 0)
+      },
+      mudMask: { 
+        value: weekHeadData.reduce((sum, data) => sum + ((data.treatments?.mudMask?.amount || 0) * (data.treatments?.mudMask?.done ? 1 : 0)), 0)
+      },
+      mudWrap: { 
+        value: weekHeadData.reduce((sum, data) => sum + ((data.treatments?.mudWrap?.amount || 0) * (data.treatments?.mudWrap?.done ? 1 : 0)), 0)
+      },
+      aloeVera: { 
+        value: weekHeadData.reduce((sum, data) => sum + ((data.treatments?.aloeVera?.amount || 0) * (data.treatments?.aloeVera?.done ? 1 : 0)), 0)
+      },
+      massage_25: { 
+        value: weekHeadData.reduce((sum, data) => sum + ((data.treatments?.massage_25?.amount || 0) * (data.treatments?.massage_25?.done ? 1 : 0)), 0)
+      },
+      massage_50: { 
+        value: weekHeadData.reduce((sum, data) => sum + ((data.treatments?.massage_50?.amount || 0) * (data.treatments?.massage_50?.done ? 1 : 0)), 0)
+      }
     },
     dailyData
   };
 
   res.json({ summary });
+});
+
+// Submit head data
+app.post('/api/head-data', authenticateToken, restrictToRoles(['head']), (req, res) => {
+  const {
+    foodAndDrinkSales,
+    treatments,
+    preBookedData,
+    bonuses,
+    otherCosts,
+    date,
+  } = req.body;
+
+  if (!date) {
+    return res.status(400).json({ message: 'Missing required field: Date' });
+  }
+
+  try {
+
+    // Check if head data already exists for this date
+    const existingDataIndex = headData.findIndex(item => item.date === date);
+    
+    if (existingDataIndex !== -1) {
+      // Update existing data
+      const updatedData = {
+        ...headData[existingDataIndex],
+        foodAndDrinkSales: foodAndDrinkSales !== undefined ? Number(foodAndDrinkSales) : headData[existingDataIndex].foodAndDrinkSales,
+        treatments: treatments || headData[existingDataIndex].treatments,
+        preBookedData: preBookedData || headData[existingDataIndex].preBookedData,
+        bonuses: bonuses || headData[existingDataIndex].bonuses,
+        otherCosts: otherCosts || headData[existingDataIndex].otherCosts,
+        status: {
+          ...headData[existingDataIndex].status,
+          // Update both statuses together when either F&B Sales or Treatments change
+          foodAndDrinkSales: (foodAndDrinkSales !== undefined || treatments !== undefined) ? 'edited' : headData[existingDataIndex].status.foodAndDrinkSales,
+          treatments: (foodAndDrinkSales !== undefined || treatments !== undefined) ? 'edited' : headData[existingDataIndex].status.treatments,
+          // Update individual statuses for other sections
+          preBookedData: preBookedData !== undefined ? 'edited' : headData[existingDataIndex].status.preBookedData,
+          bonuses: bonuses !== undefined ? 'edited' : headData[existingDataIndex].status.bonuses,
+          otherCosts: otherCosts !== undefined ? 'edited' : headData[existingDataIndex].status.otherCosts
+        }
+      };
+
+      headData[existingDataIndex] = updatedData;
+      return res.json({ message: 'Head data updated', headData: updatedData });
+    }
+
+    // Create new data with pending status
+    const newData = initializeHeadDataFields(date);
+    newData.createdBy = req.user.username;
+    
+    // Update fields that were provided
+    if (foodAndDrinkSales !== undefined) {
+      newData.foodAndDrinkSales = Number(foodAndDrinkSales);
+      newData.status.foodAndDrinkSales = 'edited';
+      newData.status.treatments = 'edited';
+    }
+    if (treatments) {
+      newData.treatments = treatments;
+      newData.status.treatments = 'edited';
+      newData.status.foodAndDrinkSales = 'edited';
+    }
+    if (preBookedData) {
+      newData.preBookedData = preBookedData;
+      newData.status.preBookedData = 'edited';
+    }
+    if (bonuses) {
+      newData.bonuses = bonuses;
+      newData.status.bonuses = 'edited';
+    }
+    if (otherCosts) {
+      newData.otherCosts = otherCosts;
+      newData.status.otherCosts = 'edited';
+    }
+
+    headData.push(newData);
+    res.json({ message: 'Head data submitted', headData: newData });
+  } catch (error) {
+    console.error('Error handling head data:', error);
+    res.status(500).json({ message: 'Error handling head data', error: error.message });
+  }
+});
+
+// Verify head data (F&B Sales + Treatments, Prebooked Data, Bonuses, Other Costs)
+app.patch('/api/head-data/:id/verify', authenticateToken, restrictToRoles(['head']), (req, res) => {
+  const { id } = req.params;
+  const { field } = req.body;
+
+  if (!field || !['foodAndDrinkSales', 'treatments', 'preBookedData', 'bonuses', 'otherCosts'].includes(field)) {
+    return res.status(400).json({ message: 'Invalid field specified' });
+  }
+
+  const dataIndex = headData.findIndex(item => item.id === Number(id));
+  if (dataIndex === -1) {
+    return res.status(404).json({ message: 'Head data not found' });
+  }
+
+  // Update the status to Confirmed
+  headData[dataIndex].status[field] = 'Confirmed';
+
+  // If confirming F&B Sales or Treatments, update both statuses
+  if (field === 'foodAndDrinkSales' || field === 'treatments') {
+    headData[dataIndex].status.foodAndDrinkSales = 'Confirmed';
+    headData[dataIndex].status.treatments = 'Confirmed';
+  }
+
+  res.json({ message: 'Head data verified', headData: headData[dataIndex] });
+});
+
+// Get head data for a specific date
+app.get('/api/head-data', authenticateToken, (req, res) => {
+  const { date } = req.query;
+  if (!date) {
+    return res.status(400).json({ message: 'Missing date query parameter' });
+  }
+
+  // Find existing data
+  const data = headData.find(item => item.date === date);
+  
+  if (!data) {
+    // Create default structure with pending status
+    const defaultData = initializeHeadDataFields(date);
+    defaultData.createdBy = req.user.username;
+    
+    // Add the default data to headData array
+    headData.push(defaultData);
+    return res.json({ headData: defaultData });
+  }
+
+  res.json({ headData: data });
+});
+
+// Get all head data
+app.get('/api/head-data/all', authenticateToken, (req, res) => {
+  const { verified } = req.query;
+  let filteredData = headData;
+
+  if (verified === 'false') {
+    filteredData = headData.filter(data => !data.isVerified);
+  } else if (verified === 'true') {
+    filteredData = headData.filter(data => data.isVerified);
+  }
+
+  res.json({ headData: filteredData });
 });
 
 // Helper function to format date as dd.mm.yyyy

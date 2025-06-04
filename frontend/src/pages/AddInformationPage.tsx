@@ -13,9 +13,10 @@ interface SurveyModalProps {
   onSubmitSuccess: () => void;
   initialData?: ClientInfo;
   selectedDate: string;
+  onUpdate?: (updates: Partial<ClientInfo>) => Promise<void>;
 }
 
-const SurveyModal: React.FC<SurveyModalProps> = ({ isOpen, onClose, onSubmitSuccess, initialData, selectedDate }) => {
+const SurveyModal: React.FC<SurveyModalProps> = ({ isOpen, onClose, onSubmitSuccess, initialData, selectedDate, onUpdate }) => {
   const { user, token } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -97,47 +98,51 @@ const SurveyModal: React.FC<SurveyModalProps> = ({ isOpen, onClose, onSubmitSucc
     setError('');
 
     try {
-      const url = initialData?.id
-        ? `http://localhost:2345/api/clients/${initialData.id}`
-        : 'http://localhost:2345/api/clients';
-      const method = initialData?.id ? 'PUT' : 'POST';
+      if (initialData?.id && onUpdate) {
+        await onUpdate(formData);
+      } else {
+        const url = initialData?.id
+          ? `http://localhost:2345/api/clients/${initialData.id}`
+          : 'http://localhost:2345/api/clients';
+        const method = initialData?.id ? 'PUT' : 'POST';
 
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          amountOfPeople: parseInt(String(formData.amountOfPeople) || '0'),
-          male: parseInt(String(formData.male) || '0'),
-          female: parseInt(String(formData.female) || '0'),
-          englishSpeaking: parseInt(String(formData.englishSpeaking) || '0'),
-          russianSpeaking: parseInt(String(formData.russianSpeaking) || '0'),
-          offPeakClients: parseInt(String(formData.offPeakClients) || '0'),
-          peakTimeClients: parseInt(String(formData.peakTimeClients) || '0'),
-          newClients: parseInt(String(formData.newClients) || '0'),
-          onlineMembershipsAmount: parseInt(String(formData.onlineMembershipsAmount) || '0'),
-          onlineMembershipsTotal: parseInt(String(formData.onlineMembershipsTotal) || '0'),
-          offlineMembershipsAmount: parseInt(String(formData.offlineMembershipsAmount) || '0'),
-          offlineMembershipsTotal: parseInt(String(formData.offlineMembershipsTotal) || '0'),
-          onlineVouchersAmount: parseInt(String(formData.onlineVouchersAmount) || '0'),
-          onlineVouchersTotal: parseInt(String(formData.onlineVouchersTotal) || '0'),
-          paperVouchersAmount: parseInt(String(formData.paperVouchersAmount) || '0'),
-          paperVouchersTotal: parseInt(String(formData.paperVouchersTotal) || '0'),
-          yottaLinksAmount: parseInt(String(formData.yottaLinksAmount) || '0'),
-          yottaLinksTotal: parseInt(String(formData.yottaLinksTotal) || '0'),
-          date: selectedDate,
-          createdBy: user.username,
-          status: initialData?.id 
-            ? (user.role === 'head' ? 'edited' : 'pending')
-            : 'pending',
-        }),
-      });
+        const response = await fetch(url, {
+          method,
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            amountOfPeople: parseInt(String(formData.amountOfPeople) || '0'),
+            male: parseInt(String(formData.male) || '0'),
+            female: parseInt(String(formData.female) || '0'),
+            englishSpeaking: parseInt(String(formData.englishSpeaking) || '0'),
+            russianSpeaking: parseInt(String(formData.russianSpeaking) || '0'),
+            offPeakClients: parseInt(String(formData.offPeakClients) || '0'),
+            peakTimeClients: parseInt(String(formData.peakTimeClients) || '0'),
+            newClients: parseInt(String(formData.newClients) || '0'),
+            onlineMembershipsAmount: parseInt(String(formData.onlineMembershipsAmount) || '0'),
+            onlineMembershipsTotal: parseInt(String(formData.onlineMembershipsTotal) || '0'),
+            offlineMembershipsAmount: parseInt(String(formData.offlineMembershipsAmount) || '0'),
+            offlineMembershipsTotal: parseInt(String(formData.offlineMembershipsTotal) || '0'),
+            onlineVouchersAmount: parseInt(String(formData.onlineVouchersAmount) || '0'),
+            onlineVouchersTotal: parseInt(String(formData.onlineVouchersTotal) || '0'),
+            paperVouchersAmount: parseInt(String(formData.paperVouchersAmount) || '0'),
+            paperVouchersTotal: parseInt(String(formData.paperVouchersTotal) || '0'),
+            yottaLinksAmount: parseInt(String(formData.yottaLinksAmount) || '0'),
+            yottaLinksTotal: parseInt(String(formData.yottaLinksTotal) || '0'),
+            yottaWidgetAmount: parseInt(String(formData.yottaWidgetAmount) || '0'),
+            yottaWidgetTotal: parseInt(String(formData.yottaWidgetTotal) || '0'),
+            date: selectedDate,
+            createdBy: user.username,
+            status: 'edited'
+          }),
+        });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Failed to ${initialData?.id ? 'update' : 'submit'} client: ${response.status}`);
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || `Failed to ${initialData?.id ? 'update' : 'submit'} client: ${response.status}`);
+        }
       }
 
       setIsSubmitting(false);

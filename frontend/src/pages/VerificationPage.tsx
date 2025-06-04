@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { ClientInfo } from '../types';
+import { ClientInfo, DailyPreBooked, Treatments, Bonuses, HeadData, PreBookedData, StatusType, WeeklySummary } from '../types';
 import Card from '../components/common/Card';
 import { FaCheck, FaArrowLeft, FaArrowRight, FaCalendarDay, FaCalendarWeek, FaCalendarAlt, FaRegEdit, FaChevronDown, FaChevronUp } from 'react-icons/fa';
 import SurveyModal from './AddInformationPage';
@@ -9,11 +9,12 @@ import { generateWeeklyReport } from '../utils/generateWeeklyReport';
 const VerificationPage: React.FC = () => {
   const { token, user } = useAuth();
   const [clients, setClients] = useState<ClientInfo[]>([]);
+  const [headData, setHeadData] = useState<HeadData[]>([]);
   const [error, setError] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<ClientInfo | null>(null);
+  const [selectedHeadData, setSelectedHeadData] = useState<HeadData | null>(null);
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [selectedWeekDate, setSelectedWeekDate] = useState(new Date());
   const [selectedMonthDate, setSelectedMonthDate] = useState(new Date());
   const [viewType, setViewType] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -25,7 +26,7 @@ const VerificationPage: React.FC = () => {
   const [isWeeklySummaryCollapsed, setIsWeeklySummaryCollapsed] = useState(true);
   const [isPrebookedCollapsed, setIsPrebookedCollapsed] = useState(false);
   const [isOtherCostsCollapsed, setIsOtherCostsCollapsed] = useState(true);
-  const [weeklySummary, setWeeklySummary] = useState<any>(null);
+  const [weeklySummary, setWeeklySummary] = useState<WeeklySummary | null>(null);
   const pollingIntervalRef = useRef<number>();
   const [canNavigateNext, setCanNavigateNext] = useState(false);
   const [canNavigatePrev, setCanNavigatePrev] = useState(true);
@@ -80,51 +81,85 @@ const VerificationPage: React.FC = () => {
     }
   }, [token]);
 
-  // Helper functions for date manipulation
-  const getWeekStart = (date: Date) => {
-    const result = new Date(date);
-    const day = result.getDay();
-    const diff = result.getDate() - day + (day === 0 ? -6 : 1);
-    result.setDate(diff);
-    return result;
-  };
+  // Add new useEffect for fetching head data
+  useEffect(() => {
+    const fetchHeadData = async () => {
+      if (!token) {
+        setError('No authentication token available');
+        return;
+      }
+      try {
+        const response = await fetch(`http://localhost:2345/api/head-data?date=${selectedDate.toISOString().split('T')[0]}`, {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || `Failed to fetch head data: ${response.status}`);
+        }
+        const data = await response.json();
+        setSelectedHeadData(data.headData);
+      } catch (err) {
+        console.error('Fetch head data error:', err);
+        setError(err instanceof Error ? err.message : 'Error fetching head data');
+      }
+    };
 
-  const getWeekEnd = (date: Date) => {
-    const result = new Date(date);
-    const day = result.getDay();
-    const diff = result.getDate() - day + (day === 0 ? 0 : 7);
-    result.setDate(diff);
-    return result;
-  };
+    fetchHeadData();
+  }, [token, selectedDate]);
 
-  const formatDate = (date: Date) => {
-    const day = date.getDate().toString().padStart(2, '0');
-    const month = date.toLocaleString('default', { month: 'long' });
-    const year = date.getFullYear();
-    return `${day} ${month} ${year}`;
-  };
+  // Date formatting utilities
+  const dateUtils = {
+    // Format to YYYY-MM-DD for API calls
+    toYYYYMMDD: (date: Date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    },
 
-  const formatWeekRange = (startDate: Date, endDate: Date) => {
-    const startDay = startDate.getDate().toString().padStart(2, '0');
-    const startMonth = startDate.toLocaleString('default', { month: 'long' });
-    const endDay = endDate.getDate().toString().padStart(2, '0');
-    const endMonth = endDate.toLocaleString('default', { month: 'long' });
-    const year = startDate.getFullYear();
-    return `${startDay} ${startMonth} - ${endDay} ${endMonth} ${year}`;
-  };
+    // Format to "DD Month YYYY" for display
+    toDisplay: (date: Date) => {
+      const day = date.getDate().toString().padStart(2, '0');
+      const month = date.toLocaleString('default', { month: 'long' });
+      const year = date.getFullYear();
+      return `${day} ${month} ${year}`;
+    },
 
-  const formatMonth = (date: Date) => {
-    const month = date.toLocaleString('default', { month: 'long' });
-    const year = date.getFullYear();
-    return `${month} ${year}`;
-  };
+    // Format to "DD.MM" for day display
+    toDayMonth: (date: Date) => {
+      const day = date.getDate().toString().padStart(2, '0');
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      return `${day}.${month}`;
+    },
 
-  const getDayDate = (dayIndex: number, weekStart: Date) => {
-    const date = new Date(weekStart);
-    date.setDate(date.getDate() + dayIndex);
-    const day = date.getDate().toString().padStart(2, '0');
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    return `${day}.${month}`;
+    // Get week start (Monday) for a given date
+    getWeekStart: (date: Date) => {
+      const result = new Date(date);
+      const day = result.getDay();
+      const daysToSubtract = day === 1 ? 0 : day === 0 ? 6 : day - 1;
+      result.setDate(result.getDate() - daysToSubtract);
+      result.setHours(0, 0, 0, 0);
+      return result;
+    },
+
+    // Get week end (Sunday) for a given date
+    getWeekEnd: (date: Date) => {
+      const result = new Date(date);
+      const day = result.getDay();
+      const daysToAdd = day === 0 ? 0 : 7 - day;
+      result.setDate(result.getDate() + daysToAdd);
+      result.setHours(23, 59, 59, 999);
+      return result;
+    },
+
+    // Format week range for display
+    formatWeekRange: (startDate: Date, endDate: Date) => {
+      return `${dateUtils.toDisplay(startDate)} - ${dateUtils.toDisplay(endDate)}`;
+    }
   };
 
   const checkNavigationAvailability = () => {
@@ -140,7 +175,7 @@ const VerificationPage: React.FC = () => {
         setCanNavigatePrev(true);
         break;
       case 'weekly':
-        const nextWeekDate = new Date(selectedWeekDate);
+        const nextWeekDate = new Date(selectedDate);
         nextWeekDate.setDate(nextWeekDate.getDate() + 7);
         nextWeekDate.setHours(0, 0, 0, 0);
 
@@ -149,10 +184,10 @@ const VerificationPage: React.FC = () => {
         maxWeekStart.setHours(0, 0, 0, 0);
 
         setCanNavigateNext(nextWeekDate.getTime() <= maxWeekStart.getTime());
-        setCanNavigatePrev(true); // Always allow going back
+        setCanNavigatePrev(true);
         break;
       case 'monthly':
-        const nextMonthDate = new Date(selectedMonthDate);
+        const nextMonthDate = new Date(selectedDate);
         nextMonthDate.setMonth(nextMonthDate.getMonth() + 1);
         nextMonthDate.setHours(0, 0, 0, 0);
 
@@ -161,14 +196,14 @@ const VerificationPage: React.FC = () => {
         maxMonthStart.setHours(0, 0, 0, 0);
 
         setCanNavigateNext(nextMonthDate.getTime() < maxMonthStart.getTime());
-        setCanNavigatePrev(true); // Always allow going back
+        setCanNavigatePrev(true);
         break;
     }
   };
 
   useEffect(() => {
     checkNavigationAvailability();
-  }, [viewType, selectedDate, selectedWeekDate, selectedMonthDate]);
+  }, [viewType, selectedDate, selectedMonthDate]);
 
   const handlePrevPeriod = () => {
     if (!canNavigatePrev) return;
@@ -187,19 +222,19 @@ const VerificationPage: React.FC = () => {
         }, 200);
         break;
       case 'weekly':
-        const newWeekDate = new Date(selectedWeekDate);
+        const newWeekDate = new Date(selectedDate);
         newWeekDate.setDate(newWeekDate.getDate() - 7);
         setTimeout(() => {
-          setSelectedWeekDate(newWeekDate);
+          setSelectedDate(newWeekDate);
           setIsTransitioning(false);
           setDirection(null);
         }, 200);
         break;
       case 'monthly':
-        const newMonthDate = new Date(selectedMonthDate);
+        const newMonthDate = new Date(selectedDate);
         newMonthDate.setMonth(newMonthDate.getMonth() - 1);
         setTimeout(() => {
-          setSelectedMonthDate(newMonthDate);
+          setSelectedDate(newMonthDate);
           setIsTransitioning(false);
           setDirection(null);
         }, 200);
@@ -224,19 +259,19 @@ const VerificationPage: React.FC = () => {
         }, 200);
         break;
       case 'weekly':
-        const newWeekDate = new Date(selectedWeekDate);
+        const newWeekDate = new Date(selectedDate);
         newWeekDate.setDate(newWeekDate.getDate() + 7);
         setTimeout(() => {
-          setSelectedWeekDate(newWeekDate);
+          setSelectedDate(newWeekDate);
           setIsTransitioning(false);
           setDirection(null);
         }, 200);
         break;
       case 'monthly':
-        const newMonthDate = new Date(selectedMonthDate);
+        const newMonthDate = new Date(selectedDate);
         newMonthDate.setMonth(newMonthDate.getMonth() + 1);
         setTimeout(() => {
-          setSelectedMonthDate(newMonthDate);
+          setSelectedDate(newMonthDate);
           setIsTransitioning(false);
           setDirection(null);
         }, 200);
@@ -244,42 +279,23 @@ const VerificationPage: React.FC = () => {
     }
   };
 
-  const filterClientsByDate = (clients: ClientInfo[], date: Date) => {
-    return clients.filter((client) => {
+  const filterDataByDate = (clients: ClientInfo[], date: Date, headData: HeadData[]) => {
+    const clientsByDate = clients.filter((client) => {
       const clientDate = new Date(client.date);
       return clientDate.toDateString() === date.toDateString();
     });
-  };
-
-  const handleConfirm = async (clientId: number, verifyType: 'survey' | 'headData') => {
-    if (!token) {
-      setError('No authentication token available');
-      return;
-    }
-    try {
-      const response = await fetch(`http://localhost:2345/api/clients/${clientId}/verify`, {
-        method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ isVerified: true, verifyType }),
-      });
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Failed to verify client: ${response.status}`);
-      }
-      fetchUnverifiedClients(); // Refresh the list
-    } catch (err) {
-      console.error('Verify client error:', err);
-      setError(err instanceof Error ? err.message : 'Error verifying client data');
-    }
+    const headDataByDate = headData.filter((head) => {
+      const headDate = new Date(head.date);
+      return headDate.toDateString() === date.toDateString();
+    });
+    return { clients: clientsByDate, headData: headDataByDate };
   };
 
   const handleSubmitSuccess = () => {
     fetchUnverifiedClients();
     setIsModalOpen(false);
     setSelectedClient(null);
+    setSelectedHeadData(null);
   };
 
   const handleViewChange = (newViewType: 'daily' | 'weekly' | 'monthly') => {
@@ -291,135 +307,25 @@ const VerificationPage: React.FC = () => {
     }, 200);
   };
 
-  type DayOfWeek = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
-  type TreatmentKey = keyof NonNullable<typeof latestClient.treatments>;
-  type BonusKey = keyof NonNullable<typeof latestClient.bonuses>;
-
-  const handleTreatmentUpdate = async (treatment: TreatmentKey, isDone: boolean) => {
-    if (!token || !latestClient?.id || !latestClient.treatments) {
-      setError('No authentication token available or no client selected');
-      return;
-    }
-
-    try {
-      const updatedTreatments = {
-        ...latestClient.treatments,
-        [treatment]: {
-          ...latestClient.treatments[treatment],
-          done: isDone
-        }
-      };
-
-      const response = await fetch(`http://localhost:2345/api/clients/${latestClient.id}`, {
-        method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...latestClient,
-          treatments: updatedTreatments
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Failed to update treatment: ${response.status}`);
-      }
-
-      fetchUnverifiedClients();
-    } catch (err) {
-      console.error('Update treatment error:', err);
-      setError(err instanceof Error ? err.message : 'Error updating treatment');
-    }
-  };
-
-  const handleTreatmentAmountUpdate = async (treatment: TreatmentKey, amount: number) => {
-    if (!token || !latestClient?.id || !latestClient.treatments) {
-      setError('No authentication token available or no client selected');
-      return;
-    }
-
-    try {
-      const updatedTreatments = {
-        ...latestClient.treatments,
-        [treatment]: {
-          ...latestClient.treatments[treatment],
-          amount: amount
-        }
-      };
-
-      const response = await fetch(`http://localhost:2345/api/clients/${latestClient.id}`, {
-        method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...latestClient,
-          treatments: updatedTreatments
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Failed to update treatment amount: ${response.status}`);
-      }
-
-      fetchUnverifiedClients();
-    } catch (err) {
-      console.error('Update treatment amount error:', err);
-      setError(err instanceof Error ? err.message : 'Error updating treatment amount');
-    }
-  };
-
-  const handleFoodAndDrinkUpdate = async (value: number) => {
-    if (!token || !latestClient?.id) {
-      setError('No authentication token available or no client selected');
-      return;
-    }
-
-    try {
-      const response = await fetch(`http://localhost:2345/api/clients/${latestClient.id}`, {
-        method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...latestClient,
-          foodAndDrinkSales: value
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Failed to update food and drink sales: ${response.status}`);
-      }
-
-      // Refresh the client data
-      fetchUnverifiedClients();
-    } catch (err) {
-      console.error('Update food and drink sales error:', err);
-      setError(err instanceof Error ? err.message : 'Error updating food and drink sales');
-    }
-  };
+  type DayOfWeek = keyof DailyPreBooked;
+  type TreatmentKey = keyof Treatments;
+  type BonusKey = keyof Bonuses;
 
   const handleClientUpdate = async (updates: Partial<ClientInfo>) => {
-    if (!token || !latestClient?.id) {
+    if (!token || !selectedClient?.id) {
       setError('No authentication token available or no client selected');
       return;
     }
 
     try {
-      const response = await fetch(`http://localhost:2345/api/clients/${latestClient.id}`, {
+      const response = await fetch(`http://localhost:2345/api/clients/${selectedClient.id}`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ...latestClient,
+          ...selectedClient,
           ...updates
         }),
       });
@@ -436,10 +342,277 @@ const VerificationPage: React.FC = () => {
     }
   };
 
-  const filteredClients = filterClientsByDate(clients, selectedDate);
-  const latestClient = filteredClients[0];
+  const handleHeadDataUpdate = async (field: string, value: any) => {
+    if (!token) {
+      setError('No authentication token available');
+      return;
+    }
 
-  const getStatusColor = (status: string) => {
+    try {
+      const response = await fetch('http://localhost:2345/api/head-data', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          date: viewType === 'weekly' ? selectedDate.toISOString().split('T')[0] : selectedDate.toISOString().split('T')[0],
+          [field]: value,
+          isWeekly: viewType === 'weekly'
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Failed to update head data:', errorData);
+        throw new Error(errorData.message || `Failed to update head data: ${response.status}`);
+      }
+
+      const responseData = await response.json();
+
+      // Update both selectedHeadData and headData state
+      setSelectedHeadData(responseData.headData);
+      setHeadData(prevData => {
+        const existingIndex = prevData.findIndex(data => data.date === responseData.headData.date);
+        if (existingIndex !== -1) {
+          // Update existing data
+          const newData = [...prevData];
+          newData[existingIndex] = responseData.headData;
+          return newData;
+        } else {
+          // Add new data
+          return [...prevData, responseData.headData];
+        }
+      });
+    } catch (err) {
+      console.error('Update head data error:', err);
+      setError(err instanceof Error ? err.message : 'Error updating head data');
+    }
+  };
+
+  const handleVerifyClientData = async (clientId: number) => {
+    if (!token) {
+      setError('No authentication token available');
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:2345/api/clients/${clientId}/verify`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ isVerified: true })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to verify client data');
+      }
+
+      const data = await response.json();
+      
+      // Update the client in the state
+      setClients(prevClients => {
+        const existingIndex = prevClients.findIndex(client => client.id === data.client.id);
+        if (existingIndex !== -1) {
+          const newClients = [...prevClients];
+          newClients[existingIndex] = data.client;
+          return newClients;
+        }
+        return prevClients;
+      });
+    } catch (error) {
+      console.error('Error verifying client data:', error);
+      setError(error instanceof Error ? error.message : 'Error verifying client data');
+    }
+  };
+
+  const handleVerifyHeadData = async (field: string) => {
+    if (!selectedHeadData || !token) return;
+
+    try {
+      const response = await fetch(`http://localhost:2345/api/head-data/${selectedHeadData.id}/verify`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ field })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to verify head data');
+      }
+
+      const data = await response.json();
+      
+      // Update both selectedHeadData and headData state
+      setSelectedHeadData(data.headData);
+      setHeadData(prevData => {
+        const existingIndex = prevData.findIndex(item => item.id === data.headData.id);
+        if (existingIndex !== -1) {
+          const newData = [...prevData];
+          newData[existingIndex] = data.headData;
+          return newData;
+        }
+        return [...prevData, data.headData];
+      });
+    } catch (error) {
+      console.error('Error verifying head data:', error);
+      setError(error instanceof Error ? error.message : 'Error verifying head data');
+    }
+  };
+
+  const handleFoodAndDrinkUpdate = async (value: number) => {
+    if (!token) {
+      setError('No authentication token available or no head data selected');
+      return;
+    }
+
+    try {
+      await handleHeadDataUpdate('foodAndDrinkSales', value);
+    } catch (err) {
+      console.error('Update food and drink sales error:', err);
+      setError(err instanceof Error ? err.message : 'Error updating food and drink sales');
+    }
+  };
+
+  const handleTreatmentUpdate = async (treatment: TreatmentKey, isDone: boolean) => {
+    if (!token || !selectedHeadData?.treatments) {
+      setError('No authentication token available or no head data selected');
+      return;
+    }
+    
+    try {
+      const updatedTreatments: Treatments = {
+        ...selectedHeadData.treatments,
+        [treatment]: {
+          ...selectedHeadData.treatments[treatment],
+          done: isDone
+        }
+      };
+
+      await handleHeadDataUpdate('treatments', updatedTreatments);
+    } catch (err) {
+      console.error('Update treatment error:', err);
+      setError(err instanceof Error ? err.message : 'Error updating treatment');
+    }
+  };
+
+  const handleTreatmentAmountUpdate = async (treatment: TreatmentKey, amount: number) => {
+    if (!token || !selectedHeadData?.treatments) {
+      setError('No authentication token available or no head data selected');
+      return;
+    }
+
+    try {
+      const updatedTreatments = {
+        ...selectedHeadData.treatments,
+        [treatment]: {
+          ...selectedHeadData.treatments[treatment],
+          amount: amount
+        }
+      };
+
+      await handleHeadDataUpdate('treatments', updatedTreatments);
+    } catch (err) {
+      console.error('Update treatment amount error:', err);
+      setError(err instanceof Error ? err.message : 'Error updating treatment amount');
+    }
+  };
+
+  const handleDailyPreBookedUpdate = async (day: DayOfWeek, value: number) => {
+    if (!token) {
+      setError('No authentication token available or no head data selected');
+      return;
+    }
+    
+    try {
+      const currentPreBookedData = selectedHeadData?.preBookedData || {
+        preBookedValueNextWeek: 0,
+        preBookedPeopleNextWeek: 0
+      };
+
+      const defaultDays = {
+        monday: 0,
+        tuesday: 0,
+        wednesday: 0,
+        thursday: 0,
+        friday: 0,
+        saturday: 0,
+        sunday: 0
+      };
+
+      const updatedPreBookedData: PreBookedData = {
+        ...currentPreBookedData,
+        dailyPreBookedPeople: {
+          ...defaultDays,
+          ...(currentPreBookedData?.dailyPreBookedPeople || {}),
+          [day]: value
+        }
+      };
+
+      await handleHeadDataUpdate('preBookedData', updatedPreBookedData);
+    } catch (err) {
+      console.error('Update prebooked error:', err);
+      setError(err instanceof Error ? err.message : 'Error updating prebooked data');
+    }
+  };
+
+  const handleDailyPreBookedValueUpdate = async (day: DayOfWeek, value: number) => {
+    if (!token) {
+      setError('No authentication token available or no head data selected');
+      return;
+    }
+    
+    try {
+      const currentPreBookedData = selectedHeadData?.preBookedData || {
+        preBookedValueNextWeek: 0,
+        preBookedPeopleNextWeek: 0
+      };
+
+      const defaultDays = {
+        monday: 0,
+        tuesday: 0,
+        wednesday: 0,
+        thursday: 0,
+        friday: 0,
+        saturday: 0,
+        sunday: 0
+      };
+
+      const updatedPreBookedData: PreBookedData = {
+        ...currentPreBookedData,
+        dailyPreBookedValue: {
+          ...defaultDays,
+          ...(currentPreBookedData?.dailyPreBookedValue || {}),
+          [day]: value
+        }
+      };
+
+      await handleHeadDataUpdate('preBookedData', updatedPreBookedData);
+    } catch (err) {
+      console.error('Update prebooked value error:', err);
+      setError(err instanceof Error ? err.message : 'Error updating prebooked value');
+    }
+  };
+
+  const filteredData = filterDataByDate(clients, selectedDate, headData);
+  const latestClient = filteredData.clients[0];
+  const latestHeadData = filteredData.headData[0];
+
+  // Update the useEffect to handle the case when there's no head data
+  useEffect(() => {
+    if (latestHeadData) {
+      setSelectedHeadData(latestHeadData);
+    } else {
+      // Reset selectedHeadData when there's no data for the selected date
+      setSelectedHeadData(null);
+    }
+  }, [latestHeadData]);
+
+  const getStatusColor = (status: StatusType) => {
     switch (status) {
       case 'Confirmed':
         return 'bg-green-100 text-green-800';
@@ -450,36 +623,53 @@ const VerificationPage: React.FC = () => {
     }
   };
 
-  const fetchWeeklySummary = async (weekStart: Date) => {
+  const fetchWeeklySummary = async () => {
     if (!token) {
       setError('No authentication token available');
       return;
     }
     try {
-      const response = await fetch(`http://localhost:2345/api/clients/weekly-summary?weekStart=${weekStart.toISOString().split('T')[0]}`, {
+      // Get the weekly head data
+      const headDataResponse = await fetch(`http://localhost:2345/api/head-data?date=${dateUtils.toYYYYMMDD(selectedDate)}&isWeekly=true`, {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Failed to fetch weekly summary: ${response.status}`);
+      if (!headDataResponse.ok) {
+        const errorData = await headDataResponse.json().catch(() => ({}));
+        throw new Error(errorData.message || `Failed to fetch weekly data: ${headDataResponse.status}`);
       }
-      const data = await response.json();
-      setWeeklySummary(data.summary);
+      const headData = await headDataResponse.json();
+      setSelectedHeadData(headData.headData);
+
+      // Get the weekly summary using the correct week start date
+      const weekStartDate = dateUtils.getWeekStart(selectedDate);
+      const summaryResponse = await fetch(`http://localhost:2345/api/clients/weekly-summary?weekStart=${dateUtils.toYYYYMMDD(weekStartDate)}`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!summaryResponse.ok) {
+        const errorData = await summaryResponse.json().catch(() => ({}));
+        throw new Error(errorData.message || `Failed to fetch weekly summary: ${summaryResponse.status}`);
+      }
+      const summaryData = await summaryResponse.json();
+      setWeeklySummary(summaryData.summary);
     } catch (err) {
-      console.error('Fetch weekly summary error:', err);
-      setError(err instanceof Error ? err.message : 'Error fetching weekly summary');
+      console.error('Fetch weekly data error:', err);
+      setError(err instanceof Error ? err.message : 'Error fetching weekly data');
     }
   };
 
   useEffect(() => {
     if (viewType === 'weekly') {
-      fetchWeeklySummary(selectedWeekDate);
+      fetchWeeklySummary();
     }
-  }, [viewType, selectedWeekDate, token]);
+  }, [viewType, selectedDate, token]);
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50 text-gray-800 p-6 overflow-auto">
@@ -537,9 +727,9 @@ const VerificationPage: React.FC = () => {
             <FaArrowLeft size={20} />
           </button>
           <span className="text-xl font-medium">
-            {viewType === 'daily' && formatDate(selectedDate)}
-            {viewType === 'weekly' && formatWeekRange(getWeekStart(selectedWeekDate), getWeekEnd(selectedWeekDate))}
-            {viewType === 'monthly' && formatMonth(selectedMonthDate)}
+            {viewType === 'daily' && dateUtils.toDisplay(selectedDate)}
+            {viewType === 'weekly' && dateUtils.formatWeekRange(dateUtils.getWeekStart(selectedDate), dateUtils.getWeekEnd(selectedDate))}
+            {viewType === 'monthly' && dateUtils.toDisplay(selectedDate)}
           </span>
           <button 
             onClick={handleNextPeriod} 
@@ -579,143 +769,154 @@ const VerificationPage: React.FC = () => {
               )}
 
               {viewType === 'daily' && (
-                <>
-                  {latestClient ? (
-                    <div className="space-y-6">
-                      {/* Head Data Zone */}
-                      {(user?.role === 'head' || user?.role === 'boss') && (
-                        <Card className="bg-white border border-gray-200 shadow-sm relative">
-                          <div className="p-6">
-                            <div className="flex justify-between items-center mb-4">
-                              <div className="flex items-center space-x-3">
-                                <button
-                                  onClick={() => setIsHeadDataCollapsed(!isHeadDataCollapsed)}
-                                  className="p-1 hover:bg-gray-100 rounded-full transition-colors"
-                                >
-                                  {isHeadDataCollapsed ? <FaChevronDown size={16} /> : <FaChevronUp size={16} />}
-                                </button>
-                                <h2 className="text-xl font-semibold text-gray-900">F&B Sales + Treatments</h2>
-                              </div>
-                              <div className="flex items-center space-x-3">
-                                <span
-                                  className={`inline-block px-4 py-1 rounded-full text-sm font-medium ${getStatusColor(latestClient.status.headData)}`}
-                                >
-                                  {latestClient.status.headData.charAt(0).toUpperCase() + latestClient.status.headData.slice(1)}
-                                </span>
-                                {user?.role === 'head' && (
-                                  <button
-                                    onClick={() => handleConfirm(latestClient.id!, 'headData')}
-                                    className={`p-2 transition-colors ${
-                                      latestClient.id && latestClient.status.headData === 'edited'
-                                        ? 'text-green-700 hover:text-green-900'
-                                        : 'text-gray-400 cursor-not-allowed'
-                                    }`}
-                                    title="Confirm Head Data"
-                                    disabled={!latestClient.id || latestClient.status.headData !== 'edited'}
-                                  >
-                                    <FaCheck size={20} />
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                            {!isHeadDataCollapsed && (
-                              <div className="space-y-8">
-                                {/* Food and Drink Sales */}
-                                <div className="bg-gray-50 p-6 rounded-lg">
-                                  <h3 className="text-lg font-medium text-gray-900 mb-4">F & B Sales</h3>
-                                  <div className="bg-white p-4 rounded-md shadow-sm">
-                                    <div className="flex items-center space-x-3">
-                                      <span className="text-2xl font-semibold text-blue-700">£</span>
-                                      <input
-                                        type="number"
-                                        value={latestClient.foodAndDrinkSales || 0}
-                                        onChange={(e) => {
-                                          const value = parseFloat(e.target.value) || 0;
-                                          handleFoodAndDrinkUpdate(value);
-                                        }}
-                                        className="text-2xl font-semibold text-blue-700 w-full bg-transparent focus:outline-none px-2 py-1"
-                                        min="0"
-                                        step="0.01"
-                                      />
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {/* Treatments */}
-                                <div className="bg-gray-50 p-6 rounded-lg">
-                                  <h3 className="text-lg font-medium text-gray-900 mb-4">Treatments</h3>
-                                  <div className="bg-white rounded-md shadow-sm overflow-hidden">
-                                    <div className="grid grid-cols-2 gap-4">
-                                      {Object.entries(latestClient.treatments || {}).map(([treatment, data], index) => (
-                                        <div
-                                          key={index}
-                                          className="flex items-center gap-3 p-3 hover:bg-gray-100 rounded cursor-pointer transition-colors duration-150"
-                                          onClick={() => handleTreatmentUpdate(treatment as TreatmentKey, !data.done)}
-                                          tabIndex={0}
-                                          role="button"
-                                          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') handleTreatmentUpdate(treatment as TreatmentKey, !data.done); }}
-                                        >
-                                          <div
-                                            className={`w-5 h-5 rounded-sm border-2 flex items-center justify-center transition-all duration-200 ${
-                                              data.done ? 'bg-green-500 border-green-600' : 'bg-white border-gray-300'
-                                            }`}
-                                            onClick={e => e.stopPropagation()}
-                                            style={{ transition: 'background-color 0.2s, border-color 0.2s' }}
-                                          >
-                                            {data.done && (
-                                              <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                                              </svg>
-                                            )}
-                                          </div>
-                                          <span
-                                            className="text-sm font-medium text-gray-700 truncate max-w-[100px]"
-                                            title={treatment.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()).replace(/_/g, "'")}
-                                          >
-                                            {treatment.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()).replace(/_/g, "'")}
-                                          </span>
-                                          <input
-                                            type="number"
-                                            value={data.amount || 0}
-                                            onChange={e => {
-                                              const value = parseFloat(e.target.value) || 0;
-                                              handleTreatmentAmountUpdate(treatment as TreatmentKey, value);
-                                            }}
-                                            onFocus={e => {
-                                              if (e.target.value === '0') {
-                                                e.target.value = '';
-                                              }
-                                            }}
-                                            onBlur={e => {
-                                              if (e.target.value === '') {
-                                                e.target.value = '0';
-                                                handleTreatmentAmountUpdate(treatment as TreatmentKey, 0);
-                                              }
-                                            }}
-                                            className="w-16 text-sm font-medium text-gray-700 bg-transparent focus:outline-none focus:ring-2 focus:ring-green-500 rounded px-2 py-1 text-right ml-auto"
-                                            min="0"
-                                            step="1"
-                                            onClick={e => e.stopPropagation()}
-                                          />
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                  <div className="mt-4 bg-white p-4 rounded-md shadow-sm">
-                                    <div className="flex items-center justify-between">
-                                      <p className="text-sm font-medium text-gray-700">Total Treatments</p>
-                                      <p className="text-lg font-semibold text-blue-700">
-                                        £{Object.values(latestClient.treatments || {}).reduce((sum, treatment) => sum + (treatment.amount || 0), 0)}
-                                      </p>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
+                <div className="space-y-6">
+                  <div className="space-y-6">
+                    {/* Head Data Zone */}
+                    <Card className="bg-white border border-gray-200 shadow-sm relative">
+                      <div className="p-6">
+                        <div className="flex justify-between items-center mb-4">
+                          <div className="flex items-center space-x-3">
+                            <button
+                              onClick={() => setIsHeadDataCollapsed(!isHeadDataCollapsed)}
+                              className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                            >
+                              {isHeadDataCollapsed ? <FaChevronDown size={16} /> : <FaChevronUp size={16} />}
+                            </button>
+                            <h2 className="text-xl font-semibold text-gray-900">F&B Sales + Treatments</h2>
+                          </div>
+                          <div className="flex items-center space-x-3">
+                            <span
+                              className={`inline-block px-4 py-1 rounded-full text-sm font-medium ${getStatusColor(latestHeadData?.status?.foodAndDrinkSales || 'pending')}`}
+                            >
+                              {(latestHeadData?.status?.foodAndDrinkSales || 'pending').charAt(0).toUpperCase() + (latestHeadData?.status?.foodAndDrinkSales || 'pending').slice(1)}
+                            </span>
+                            {user?.role === 'head' && (
+                              <button
+                                onClick={() => handleVerifyHeadData('foodAndDrinkSales')}
+                                className={`p-2 transition-colors ${
+                                  latestHeadData?.id && (latestHeadData?.status?.foodAndDrinkSales === 'edited' || latestHeadData?.status?.treatments === 'edited')
+                                    ? 'text-green-700 hover:text-green-900'
+                                    : 'text-gray-400 cursor-not-allowed'
+                                }`}
+                                title="Confirm Head Data"
+                                disabled={!latestHeadData?.id || (latestHeadData?.status?.foodAndDrinkSales !== 'edited' && latestHeadData?.status?.treatments !== 'edited')}
+                              >
+                                <FaCheck size={20} />
+                              </button>
                             )}
                           </div>
-                        </Card>
-                      )}
-                      
+                        </div>
+                        {!isHeadDataCollapsed && (
+                          <div className="space-y-8">
+                            {/* Food and Drink Sales */}
+                            <div className="bg-gray-50 p-6 rounded-lg">
+                              <h3 className="text-lg font-medium text-gray-900 mb-4">F & B Sales</h3>
+                              <div className="bg-white p-4 rounded-md shadow-sm">
+                                <div className="flex items-center space-x-3">
+                                  <span className="text-2xl font-semibold text-blue-700">£</span>
+                                  <input
+                                    type="number"
+                                    value={latestHeadData?.foodAndDrinkSales || 0}
+                                    onChange={(e) => {
+                                      const value = parseFloat(e.target.value) || 0;
+                                      handleFoodAndDrinkUpdate(value);
+                                    }}
+                                    className="text-2xl font-semibold text-blue-700 w-full bg-transparent focus:outline-none px-2 py-1"
+                                    min="0"
+                                    step="0.01"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Treatments */}
+                            <div className="bg-gray-50 p-6 rounded-lg">
+                              <h3 className="text-lg font-medium text-gray-900 mb-4">Treatments</h3>
+                              <div className="bg-white rounded-md shadow-sm overflow-hidden">
+                                <div className="grid grid-cols-2 gap-4 p-4">
+                                  {Object.entries(latestHeadData?.treatments || {
+                                    entryOnly: { done: false, amount: 0 },
+                                    parenie: { done: false, amount: 0 },
+                                    aromaPark: { done: false, amount: 0 },
+                                    iceWrap: { done: false, amount: 0 },
+                                    scrub: { done: false, amount: 0 },
+                                    mudMask: { done: false, amount: 0 },
+                                    mudWrap: { done: false, amount: 0 },
+                                    aloeVera: { done: false, amount: 0 },
+                                    massage_25: { done: false, amount: 0 },
+                                    massage_50: { done: false, amount: 0 }
+                                  }).map(([treatment, data], index) => (
+                                    <div
+                                      key={index}
+                                      className="flex items-center gap-3 p-3 hover:bg-gray-100 rounded cursor-pointer transition-colors duration-150"
+                                      onClick={() => handleTreatmentUpdate(treatment as TreatmentKey, !data.done)}
+                                      tabIndex={0}
+                                      role="button"
+                                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') handleTreatmentUpdate(treatment as TreatmentKey, !data.done); }}
+                                    >
+                                      <div
+                                        className={`w-5 h-5 rounded-sm border-2 flex items-center justify-center transition-all duration-200 ${
+                                          data.done ? 'bg-green-500 border-green-600' : 'bg-white border-gray-300'
+                                        }`}
+                                        onClick={e => e.stopPropagation()}
+                                        style={{ transition: 'background-color 0.2s, border-color 0.2s' }}
+                                      >
+                                        {data.done && (
+                                          <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                          </svg>
+                                        )}
+                                      </div>
+                                      <span
+                                        className="text-sm font-medium text-gray-700 truncate max-w-[100px]"
+                                        title={treatment.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()).replace(/_/g, "'")}
+                                      >
+                                        {treatment.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()).replace(/_/g, "'")}
+                                      </span>
+                                      <input
+                                        type="number"
+                                        value={data.amount || 0}
+                                        onChange={e => {
+                                          const value = parseFloat(e.target.value) || 0;
+                                          handleTreatmentAmountUpdate(treatment as TreatmentKey, value);
+                                        }}
+                                        onFocus={e => {
+                                          if (e.target.value === '0') {
+                                            e.target.value = '';
+                                          }
+                                        }}
+                                        onBlur={e => {
+                                          if (e.target.value === '') {
+                                            e.target.value = '0';
+                                            handleTreatmentAmountUpdate(treatment as TreatmentKey, 0);
+                                          }
+                                        }}
+                                        className="w-16 text-sm font-medium text-gray-700 bg-transparent focus:outline-none focus:ring-2 focus:ring-green-500 rounded px-2 py-1 text-right ml-auto"
+                                        min="0"
+                                        step="1"
+                                        onClick={e => e.stopPropagation()}
+                                      />
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                              <div className="mt-4 bg-white p-4 rounded-md shadow-sm">
+                                <div className="flex items-center justify-between">
+                                  <p className="text-sm font-medium text-gray-700">Total Treatments</p>
+                                  <p className="text-lg font-semibold text-blue-700">
+                                    £{Object.values(latestHeadData?.treatments || {}).reduce((sum, treatment) => sum + (treatment.amount || 0), 0)}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </Card>
+                  </div>
+                  <div className="space-y-6">
+                    {latestClient ? (
+                    <div className="space-y-6">                      
                       {/* Reception Data Zone */}
                       <Card className="bg-white border border-gray-200 shadow-sm relative">
                         <div className="p-6">
@@ -731,9 +932,9 @@ const VerificationPage: React.FC = () => {
                             </div>
                             <div className="flex items-center space-x-3">
                               <span
-                                className={`inline-block px-4 py-1 rounded-full text-sm font-medium ${getStatusColor(latestClient.status.survey)}`}
+                                className={`inline-block px-4 py-1 rounded-full text-sm font-medium ${getStatusColor(latestClient?.status || 'pending')}`}
                               >
-                                {latestClient.status.survey.charAt(0).toUpperCase() + latestClient.status.survey.slice(1)}
+                                {(latestClient?.status || 'pending').charAt(0).toUpperCase() + (latestClient?.status || 'pending').slice(1)}
                               </span>
                               {(user?.role === 'head' || user?.role === 'boss' || user?.role === 'admin') && (
                                 <button
@@ -749,14 +950,14 @@ const VerificationPage: React.FC = () => {
                               )}
                               {user?.role === 'head' && (
                                 <button
-                                  onClick={() => handleConfirm(latestClient.id!, 'survey')}
+                                  onClick={() => latestClient?.id && handleVerifyClientData(latestClient.id)}
                                   className={`p-2 transition-colors ${
-                                    latestClient.id && latestClient.status.survey === 'edited'
+                                    latestClient?.id && latestClient?.status === 'edited'
                                       ? 'text-green-700 hover:text-green-900'
                                       : 'text-gray-400 cursor-not-allowed'
                                   }`}
                                   title="Confirm Survey"
-                                  disabled={!latestClient.id || latestClient.status.survey !== 'edited'}
+                                  disabled={!latestClient?.id || latestClient?.status !== 'edited'}
                                 >
                                   <FaCheck size={20} />
                                 </button>
@@ -930,19 +1131,19 @@ const VerificationPage: React.FC = () => {
                                           <div className="grid grid-cols-2 gap-px bg-gray-200">
                                             <div className="bg-white p-3">
                                               <p className="text-xs text-gray-500 mb-1">Yotta Link</p>
-                                              <p className="text-lg font-semibold text-gray-900 text-right">{latestClient.yottaLinksAmount || 0}</p>
+                                              <p className="text-lg font-semibold text-gray-900">{latestClient.yottaLinksAmount || 0}</p>
                                             </div>
                                             <div className="bg-white p-3">
                                               <p className="text-xs text-gray-500 mb-1">Yotta Link Total</p>
-                                              <p className="text-lg font-semibold text-gray-900 text-right">£{latestClient.yottaLinksTotal || 0}</p>
+                                              <p className="text-lg font-semibold text-gray-900">{latestClient.yottaLinksTotal || 0}</p>
                                             </div>
                                             <div className="bg-white p-3">
                                               <p className="text-xs text-gray-500 mb-1">Yotta Widget</p>
-                                              <p className="text-lg font-semibold text-gray-900 text-right">{latestClient.yottaWidgetAmount || 0}</p>
+                                              <p className="text-lg font-semibold text-gray-900">{latestClient.yottaWidgetAmount || 0}</p>
                                             </div>
                                             <div className="bg-white p-3">
                                               <p className="text-xs text-gray-500 mb-1">Yotta Widget Total</p>
-                                              <p className="text-lg font-semibold text-gray-900 text-right">£{latestClient.yottaWidgetTotal || 0}</p>
+                                              <p className="text-lg font-semibold text-gray-900">{latestClient.yottaWidgetTotal || 0}</p>
                                             </div>
                                           </div>
                                         </div>
@@ -964,7 +1165,8 @@ const VerificationPage: React.FC = () => {
                       </div>
                     </Card>
                   )}
-                </>
+                  </div>
+                </div>
               )}
 
               {viewType === 'weekly' && (
@@ -982,154 +1184,189 @@ const VerificationPage: React.FC = () => {
                           </button>
                           <h2 className="text-xl font-semibold text-gray-900">Weekly Summary</h2>
                         </div>
-                        {weeklySummary && (
-                          <button
-                            onClick={() => generateWeeklyReport(weeklySummary, selectedWeekDate.toISOString().split('T')[0])}
-                            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center space-x-2"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                            <span>Export Excel</span>
-                          </button>
-                        )}
                       </div>
                       {!isWeeklySummaryCollapsed && weeklySummary && (
-                        <div className="space-y-6">
-                          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
-                            {/* First column: Weekly Overview and Language & Timing */}
-                            <div className="flex flex-col h-full gap-6">
-                              <div className="bg-gray-50 p-4 rounded-lg flex-1 flex flex-col">
-                                <h3 className="text-lg font-medium text-gray-900 mb-3">Clients</h3>
-                                <div className="bg-white rounded-md shadow-sm overflow-hidden">
-                                  <div className="grid grid-cols-2 gap-px bg-gray-200">
-                                    <div className="bg-white p-2">
-                                      <p className="text-xs text-gray-500 mb-2 ml-2">Total Visitors</p>
-                                      <p className="text-sm font-semibold text-gray-900 m-2 text-right">{weeklySummary.totalVisitors}</p>
-                                    </div>
-                                    <div className="bg-white p-2">
-                                      <p className="text-xs text-gray-500 mb-2 ml-2">New Clients</p>
-                                      <p className="text-sm font-semibold text-gray-900 m-2 text-right">{weeklySummary.totalNewClients}</p>
-                                    </div>
-                                    <div className="bg-white p-2">
-                                      <p className="text-xs text-gray-500 mb-2 ml-2">Male</p>
-                                      <p className="text-sm font-semibold text-gray-900 m-2 text-right">{weeklySummary.totalMale}</p>
-                                    </div>
-                                    <div className="bg-white p-2">
-                                      <p className="text-xs text-gray-500 mb-2 ml-2">Female</p>
-                                      <p className="text-sm font-semibold text-gray-900 m-2 text-right">{weeklySummary.totalFemale}</p>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="bg-gray-50 p-4 rounded-lg flex-1 flex flex-col">
-                                <h3 className="text-lg font-medium text-gray-900 mb-3">Language & Timing</h3>
-                                <div className="bg-white rounded-md shadow-sm overflow-hidden">
-                                  <div className="grid grid-cols-2 gap-px bg-gray-200">
-                                    <div className="bg-white p-2">
-                                      <p className="text-xs text-gray-500 mb-2 ml-2">English Speaking</p>
-                                      <p className="text-sm font-semibold text-gray-900 m-2 text-right">{weeklySummary.totalEnglishSpeaking}</p>
-                                    </div>
-                                    <div className="bg-white p-2">
-                                      <p className="text-xs text-gray-500 mb-2 ml-2">Russian Speaking</p>
-                                      <p className="text-sm font-semibold text-gray-900 m-2 text-right">{weeklySummary.totalRussianSpeaking}</p>
-                                    </div>
-                                    <div className="bg-white p-2">
-                                      <p className="text-xs text-gray-500 mb-2 ml-2">Off-Peak</p>
-                                      <p className="text-sm font-semibold text-gray-900 m-2 text-right">{weeklySummary.totalOffPeak}</p>
-                                    </div>
-                                    <div className="bg-white p-2">
-                                      <p className="text-xs text-gray-500 mb-2 ml-2">Peak-Time</p>
-                                      <p className="text-sm font-semibold text-gray-900 m-2 text-right">{weeklySummary.totalPeakTime}</p>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                            {/* Second column: Sales Overview and Transactions */}
-                            <div className="flex flex-col h-full gap-6">
-                              <div className="bg-gray-50 p-4 rounded-lg flex-1 flex flex-col">
-                                <h3 className="text-lg font-medium text-gray-900 mb-3">Sales</h3>
-                                <div className="bg-white rounded-md shadow-sm overflow-hidden">
-                                  <div className="grid grid-cols-2 gap-px bg-gray-200">
-                                    <div className="bg-white p-2">
-                                      <p className="text-xs text-gray-500 mb-2 ml-2">Online Memberships</p>
-                                      <div className="flex justify-between items-center m-2">
-                                        <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalOnlineMemberships.amount}</p>
-                                        <p className="text-sm font-semibold text-green-700">£{weeklySummary.totalOnlineMemberships.value}</p>
-                                      </div>
-                                    </div>
-                                    <div className="bg-white p-2">
-                                      <p className="text-xs text-gray-500 mb-2 ml-2">Offline Memberships</p>
-                                      <div className="flex justify-between items-center m-2">
-                                        <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalOfflineMemberships.amount}</p>
-                                        <p className="text-sm font-semibold text-green-700">£{weeklySummary.totalOfflineMemberships.value}</p>
-                                      </div>
-                                    </div>
-                                    <div className="bg-white p-2">
-                                      <p className="text-xs text-gray-500 mb-2 ml-2">Online Vouchers</p>
-                                      <div className="flex justify-between items-center m-2">
-                                        <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalOnlineVouchers.amount}</p>
-                                        <p className="text-sm font-semibold text-green-700">£{weeklySummary.totalOnlineVouchers.value}</p>
-                                      </div>
-                                    </div>
-                                    <div className="bg-white p-2">
-                                      <p className="text-xs text-gray-500 mb-2 ml-2">Paper Vouchers</p>
-                                      <div className="flex justify-between items-center m-2">
-                                        <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalPaperVouchers.amount}</p>
-                                        <p className="text-sm font-semibold text-green-700">£{weeklySummary.totalPaperVouchers.value}</p>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="bg-gray-50 p-4 rounded-lg flex-1 flex flex-col">
-                                <h3 className="text-lg font-medium text-gray-900 mb-3">Transactions</h3>
-                                <div className="bg-white rounded-md shadow-sm overflow-hidden">
-                                  <div className="grid grid-cols-2 gap-px bg-gray-200">
-                                    <div className="bg-white p-2">
-                                      <p className="text-xs text-gray-500 mb-2 ml-2">Yotta Links</p>
-                                      <div className="flex justify-between items-center m-2">
-                                        <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalYottaLinks.amount}</p>
-                                        <p className="text-sm font-semibold text-green-700">£{weeklySummary.totalYottaLinks.value}</p>
-                                      </div>
-                                    </div>
-                                    <div className="bg-white p-2">
-                                      <p className="text-xs text-gray-500 mb-2 ml-2">Yotta Widget</p>
-                                      <div className="flex justify-between items-center m-2">
-                                        <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalYottaWidget.amount}</p>
-                                        <p className="text-sm font-semibold text-green-700">£{weeklySummary.totalYottaWidget.value}</p>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                            {/* Third column: Treatments & Sales (spans both rows) */}
-                            <div className="bg-gray-50 p-4 rounded-lg h-full flex flex-col">
-                              <h3 className="text-lg font-medium text-gray-900 mb-3">Treatments & Kitchen</h3>
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                          {/* Client Information */}
+                          <div className="bg-gray-50 p-4 rounded-lg">
+                            <h3 className="text-lg font-medium text-gray-900 mb-3">Client Information</h3>
+                            <div className="space-y-4">
                               <div className="bg-white rounded-md shadow-sm overflow-hidden">
-                                {/* Food and Drink Sales */}
-                                <div className="p-3 border-b border-gray-200">
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-sm font-medium text-gray-700">Food and Drink Sales</span>
-                                    <span className="text-lg font-semibold text-blue-700">£{weeklySummary.totalFoodAndDrink}</span>
+                                <div className="grid grid-cols-2 gap-px bg-gray-200">
+                                  <div className="bg-white p-2">
+                                    <p className="text-xs text-gray-500 mb-1">Total Visitors</p>
+                                    <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalVisitors}</p>
+                                  </div>
+                                  <div className="bg-white p-2">
+                                    <p className="text-xs text-gray-500 mb-1">New Clients</p>
+                                    <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalNewClients}</p>
+                                  </div>
+                                  <div className="bg-white p-2">
+                                    <p className="text-xs text-gray-500 mb-1">Male</p>
+                                    <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalMale}</p>
+                                  </div>
+                                  <div className="bg-white p-2">
+                                    <p className="text-xs text-gray-500 mb-1">Female</p>
+                                    <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalFemale}</p>
                                   </div>
                                 </div>
-                                {/* Treatments */}
+                              </div>
+                              <div className="bg-white rounded-md shadow-sm overflow-hidden">
                                 <div className="grid grid-cols-2 gap-px bg-gray-200">
-                                  {Object.entries(weeklySummary.treatments).map(([treatment, amount]) => (
-                                    <div key={treatment} className="bg-white p-2">
-                                      <p className="text-xs text-gray-500">{treatment.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()).replace(/_/g, "'")}</p>
-                                      <p className="text-sm font-semibold text-gray-900 text-right">{amount as number}</p>
-                                    </div>
-                                  ))}
+                                  <div className="bg-white p-2">
+                                    <p className="text-xs text-gray-500 mb-1">English Speaking</p>
+                                    <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalEnglishSpeaking}</p>
+                                  </div>
+                                  <div className="bg-white p-2">
+                                    <p className="text-xs text-gray-500 mb-1">Russian Speaking</p>
+                                    <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalRussianSpeaking}</p>
+                                  </div>
+                                  <div className="bg-white p-2">
+                                    <p className="text-xs text-gray-500 mb-1">Off-Peak</p>
+                                    <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalOffPeak}</p>
+                                  </div>
+                                  <div className="bg-white p-2">
+                                    <p className="text-xs text-gray-500 mb-1">Peak-Time</p>
+                                    <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalPeakTime}</p>
+                                  </div>
                                 </div>
-                                <div className="bg-gray-50 p-2 flex justify-between items-center">
-                                  <span className="text-sm font-medium text-gray-700">Total Treatments</span>
-                                  <span className="text-sm font-semibold text-blue-700">
-                                    £{Object.values(weeklySummary.treatments).reduce((sum: number, amount: any) => sum + (amount as number), 0)}
-                                  </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Sales & Transactions */}
+                          <div className="bg-gray-50 p-4 rounded-lg">
+                            <h3 className="text-lg font-medium text-gray-900 mb-3">Sales & Transactions</h3>
+                            <div className="space-y-4">
+                              <div className="bg-white rounded-md shadow-sm overflow-hidden">
+                                <div className="grid grid-cols-2 gap-px bg-gray-200">
+                                  <div className="bg-white p-2">
+                                    <p className="text-xs text-gray-500 mb-1">Online Memberships</p>
+                                    <div className="flex justify-between items-center">
+                                      <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalOnlineMemberships.amount}</p>
+                                      <p className="text-sm font-semibold text-green-700">£{weeklySummary.totalOnlineMemberships.value}</p>
+                                    </div>
+                                  </div>
+                                  <div className="bg-white p-2">
+                                    <p className="text-xs text-gray-500 mb-1">Offline Memberships</p>
+                                    <div className="flex justify-between items-center">
+                                      <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalOfflineMemberships.amount}</p>
+                                      <p className="text-sm font-semibold text-green-700">£{weeklySummary.totalOfflineMemberships.value}</p>
+                                    </div>
+                                  </div>
+                                  <div className="bg-white p-2">
+                                    <p className="text-xs text-gray-500 mb-1">Online Vouchers</p>
+                                    <div className="flex justify-between items-center">
+                                      <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalOnlineVouchers.amount}</p>
+                                      <p className="text-sm font-semibold text-green-700">£{weeklySummary.totalOnlineVouchers.value}</p>
+                                    </div>
+                                  </div>
+                                  <div className="bg-white p-2">
+                                    <p className="text-xs text-gray-500 mb-1">Paper Vouchers</p>
+                                    <div className="flex justify-between items-center">
+                                      <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalPaperVouchers.amount}</p>
+                                      <p className="text-sm font-semibold text-green-700">£{weeklySummary.totalPaperVouchers.value}</p>
+                                    </div>
+                                  </div>
+                                  <div className="bg-white p-2">
+                                    <p className="text-xs text-gray-500 mb-1">Yotta Links</p>
+                                    <div className="flex justify-between items-center">
+                                      <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalYottaLinks.amount}</p>
+                                      <p className="text-sm font-semibold text-green-700">£{weeklySummary.totalYottaLinks.value}</p>
+                                    </div>
+                                  </div>
+                                  <div className="bg-white p-2">
+                                    <p className="text-xs text-gray-500 mb-1">Yotta Widget</p>
+                                    <div className="flex justify-between items-center">
+                                      <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalYottaWidget.amount}</p>
+                                      <p className="text-sm font-semibold text-green-700">£{weeklySummary.totalYottaWidget.value}</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* F&B + Treatments */}
+                          <div className="bg-gray-50 p-4 rounded-lg">
+                            <h3 className="text-lg font-medium text-gray-900 mb-3">F&B + Treatments</h3>
+                            <div className="space-y-4">
+                              <div className="bg-white rounded-md shadow-sm overflow-hidden">
+                                <div className="p-2 border-b border-gray-200">
+                                  <p className="text-xs text-gray-500 mb-1">Food & Drink Sales</p>
+                                  <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.totalFoodAndDrink}</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-px bg-gray-200">
+                                  <div className="bg-white p-2">
+                                    <p className="text-xs text-gray-500 mb-1">Entry Only</p>
+                                    <div className="flex justify-between items-center">
+                                      <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments.entryOnly.value}</p>
+                                    </div>
+                                  </div>
+                                  <div className="bg-white p-2">
+                                    <p className="text-xs text-gray-500 mb-1">Parenie</p>
+                                    <div className="flex justify-between items-center">
+                                      <p className="text-sm font-semibold text-blue-700  text-right">£{weeklySummary.treatments.parenie.value}</p>
+                                    </div>
+                                  </div>
+                                  <div className="bg-white p-2">
+                                    <p className="text-xs text-gray-500 mb-1">Aroma Park</p>
+                                    <div className="flex justify-between items-center">
+                                      <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments.aromaPark.value}</p>
+                                    </div>
+                                  </div>
+                                  <div className="bg-white p-2">
+                                    <p className="text-xs text-gray-500 mb-1">Ice Wrap</p>
+                                    <div className="flex justify-between items-center">
+                                      <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments.iceWrap.value}</p>
+                                    </div>
+                                  </div>
+                                  <div className="bg-white p-2">
+                                    <p className="text-xs text-gray-500 mb-1">Scrub</p>
+                                    <div className="flex justify-between items-center">
+                                      <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments.scrub.value}</p>
+                                    </div>
+                                  </div>
+                                  <div className="bg-white p-2">
+                                    <p className="text-xs text-gray-500 mb-1">Mud Mask</p>
+                                    <div className="flex justify-between items-center">
+                                      <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments.mudMask.value}</p>
+                                    </div>
+                                  </div>
+                                  <div className="bg-white p-2">
+                                    <p className="text-xs text-gray-500 mb-1">Mud Wrap</p>
+                                    <div className="flex justify-between items-center">
+                                      <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments.mudWrap.value}</p>
+                                    </div>
+                                  </div>
+                                  <div className="bg-white p-2">
+                                    <p className="text-xs text-gray-500 mb-1">Aloe Vera</p>
+                                    <div className="flex justify-between items-center">
+                                      <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments.aloeVera.value}</p>
+                                    </div>
+                                  </div>
+                                  <div className="bg-white p-2">
+                                    <p className="text-xs text-gray-500 mb-1">Massage 25</p>
+                                    <div className="flex justify-between items-center">
+                                      <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments.massage_25.value}</p>
+                                    </div>
+                                  </div>
+                                  <div className="bg-white p-2">
+                                    <p className="text-xs text-gray-500 mb-1">Massage 50</p>
+                                    <div className="flex justify-between items-center">
+                                      <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments.massage_50.value}</p>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="p-2 border-t border-gray-200 bg-gray-50">
+                                  <div className="flex justify-between items-center">
+                                    <p className="text-sm font-medium text-gray-700">Total Treatments</p>
+                                    <div className="flex justify-between items-center space-x-4">
+                                      <p className="text-sm font-semibold text-blue-700">
+                                        £{Object.values(weeklySummary.treatments).reduce((sum, treatment: { amount: number; value: number }) => sum + treatment.value, 0)}
+                                      </p>
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
                             </div>
@@ -1152,69 +1389,84 @@ const VerificationPage: React.FC = () => {
                           </button>
                           <h2 className="text-xl font-semibold text-gray-900">Prebooked Data</h2>
                         </div>
+                        <div className="flex items-center space-x-3">
+                          <span
+                            className={`inline-block px-4 py-1 rounded-full text-sm font-medium ${getStatusColor(latestHeadData?.status?.preBookedData || 'pending')}`}
+                          >
+                            {(latestHeadData?.status?.preBookedData || 'pending').charAt(0).toUpperCase() + (latestHeadData?.status?.preBookedData || 'pending').slice(1)}
+                          </span>
+                          {user?.role === 'head' && (
+                            <button
+                              onClick={() => handleVerifyHeadData('preBookedData')}
+                              className={`p-2 transition-colors ${
+                                latestHeadData?.id && latestHeadData?.status?.preBookedData === 'edited'
+                                  ? 'text-green-700 hover:text-green-900'
+                                  : 'text-gray-400 cursor-not-allowed'
+                              }`}
+                              title="Confirm Prebooked Data"
+                              disabled={!latestHeadData?.id || latestHeadData?.status?.preBookedData !== 'edited'}
+                            >
+                              <FaCheck size={20} />
+                            </button>
+                          )}
+                        </div>
                       </div>
                       {!isPrebookedCollapsed && (
-                        <div className="overflow-x-auto">
-                          <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                              <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Day</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Value (£)</th>
-                              </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                              {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day, index) => (
-                                <tr key={day}>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 capitalize">
-                                    {day} ({getDayDate(index, getWeekStart(selectedWeekDate))})
+                        <div className="space-y-4">
+                          <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                              <thead className="bg-gray-50">
+                                <tr>
+                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Day</th>
+                                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Value (£)</th>
+                                </tr>
+                              </thead>
+                              <tbody className="bg-white divide-y divide-gray-200">
+                                {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day, index) => (
+                                  <tr key={day}>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 capitalize">
+                                      {day} ({dateUtils.toDayMonth(new Date(dateUtils.getWeekStart(selectedDate).setDate(dateUtils.getWeekStart(selectedDate).getDate() + index)))})
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-right">
+                                      <input
+                                        type="number"
+                                        value={latestHeadData?.preBookedData?.dailyPreBookedPeople?.[day as DayOfWeek] || 0}
+                                        onChange={(e) => {
+                                          const value = parseInt(e.target.value) || 0;
+                                          handleDailyPreBookedUpdate(day as DayOfWeek, value);
+                                        }}
+                                        className="w-20 px-2 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-green-500 text-right"
+                                        min="0"
+                                      />
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-right">
+                                      <input
+                                        type="number"
+                                        value={latestHeadData?.preBookedData?.dailyPreBookedValue?.[day as DayOfWeek] || 0}
+                                        onChange={(e) => {
+                                          const value = parseFloat(e.target.value) || 0;
+                                          handleDailyPreBookedValueUpdate(day as DayOfWeek, value);
+                                        }}
+                                        className="w-24 px-2 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-green-500 text-right"
+                                        min="0"
+                                        step="0.01"
+                                      />
+                                    </td>
+                                  </tr>
+                                ))}
+                                <tr className="bg-gray-50">
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">Total</td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 text-right">
+                                    {Object.values(latestHeadData?.preBookedData?.dailyPreBookedPeople || {}).reduce((sum, val) => sum + val, 0)}
                                   </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-right">
-                                    <input
-                                      type="number"
-                                      value={latestClient?.dailyPreBooked?.[day as DayOfWeek] || 0}
-                                      onChange={(e) => {
-                                        const value = parseInt(e.target.value) || 0;
-                                        const updatedPreBooked = {
-                                          ...latestClient?.dailyPreBooked,
-                                          [day]: value
-                                        } as NonNullable<typeof latestClient.dailyPreBooked>;
-                                        handleClientUpdate({ dailyPreBooked: updatedPreBooked });
-                                      }}
-                                      className="w-20 px-2 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-green-500 text-right"
-                                      min="0"
-                                    />
-                                  </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-right">
-                                    <input
-                                      type="number"
-                                      value={latestClient?.dailyPreBookedValue?.[day as DayOfWeek] || 0}
-                                      onChange={(e) => {
-                                        const value = parseFloat(e.target.value) || 0;
-                                        const updatedPreBookedValue = {
-                                          ...latestClient?.dailyPreBookedValue,
-                                          [day]: value
-                                        } as NonNullable<typeof latestClient.dailyPreBookedValue>;
-                                        handleClientUpdate({ dailyPreBookedValue: updatedPreBookedValue });
-                                      }}
-                                      className="w-24 px-2 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-green-500 text-right"
-                                      min="0"
-                                      step="0.01"
-                                    />
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 text-right">
+                                    £{Object.values(latestHeadData?.preBookedData?.dailyPreBookedValue || {}).reduce((sum, val) => sum + val, 0).toFixed(2)}
                                   </td>
                                 </tr>
-                              ))}
-                              <tr className="bg-gray-50">
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">Total</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 text-right">
-                                  {Object.values(latestClient?.dailyPreBooked || {}).reduce((sum, val) => sum + val, 0)}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 text-right">
-                                  £{Object.values(latestClient?.dailyPreBookedValue || {}).reduce((sum, val) => sum + val, 0).toFixed(2)}
-                                </td>
-                              </tr>
-                            </tbody>
-                          </table>
+                              </tbody>
+                            </table>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -1233,43 +1485,66 @@ const VerificationPage: React.FC = () => {
                           </button>
                           <h2 className="text-xl font-semibold text-gray-900">Bonuses</h2>
                         </div>
+                        <div className="flex items-center space-x-3">
+                          <span
+                            className={`inline-block px-4 py-1 rounded-full text-sm font-medium ${getStatusColor(latestHeadData?.status?.bonuses || 'pending')}`}
+                          >
+                            {(latestHeadData?.status?.bonuses || 'pending').charAt(0).toUpperCase() + (latestHeadData?.status?.bonuses || 'pending').slice(1)}
+                          </span>
+                          {user?.role === 'head' && (
+                            <button
+                              onClick={() => handleVerifyHeadData('bonuses')}
+                              className={`p-2 transition-colors ${
+                                latestHeadData?.id && latestHeadData?.status?.bonuses === 'edited'
+                                  ? 'text-green-700 hover:text-green-900'
+                                  : 'text-gray-400 cursor-not-allowed'
+                              }`}
+                              title="Confirm Bonuses"
+                              disabled={!latestHeadData?.id || latestHeadData?.status?.bonuses !== 'edited'}
+                            >
+                              <FaCheck size={20} />
+                            </button>
+                          )}
+                        </div>
                       </div>
                       {!isBonusesCollapsed && (
-                        <div className="grid grid-cols-2 gap-4">
-                          {[
-                            { key: 'kitchenBonus', label: 'Kitchen Bonus F&B' },
-                            { key: 'ondeskSalesBonus', label: 'Ondesk Sales Bonus' },
-                            { key: 'miscBonus', label: 'Misc Bonus' },
-                            { key: 'allPerformanceBonus', label: 'All Performance Bonus' },
-                            { key: 'vouchersSalesBonus', label: 'Vouchers Sales Bonus' },
-                            { key: 'membershipSalesBonus', label: 'Membership Sales Bonus' },
-                            { key: 'privateBookingsBonus', label: 'Private Bookings Bonus' }
-                          ].map(({ key, label }) => (
-                            <div key={key} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                              <span className="text-sm font-medium text-gray-700">{label}</span>
-                              <input
-                                type="number"
-                                value={latestClient?.bonuses?.[key as BonusKey] || 0}
-                                onChange={(e) => {
-                                  const value = parseFloat(e.target.value) || 0;
-                                  const updatedBonuses = {
-                                    ...latestClient?.bonuses,
-                                    [key]: value
-                                  } as NonNullable<typeof latestClient.bonuses>;
-                                  handleClientUpdate({ bonuses: updatedBonuses });
-                                }}
-                                className="w-32 px-2 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-green-500"
-                                min="0"
-                                step="0.01"
-                              />
-                            </div>
-                          ))}
-                          <div className="col-span-2 mt-4 p-3 bg-gray-50 rounded-lg">
-                            <div className="flex justify-between items-center">
-                              <span className="text-sm font-medium text-gray-700">Total Bonuses</span>
-                              <span className="text-lg font-semibold text-gray-900">
-                                £{Object.values(latestClient?.bonuses || {}).reduce((sum, bonus) => sum + bonus, 0).toFixed(2)}
-                              </span>
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            {[
+                              { key: 'kitchenBonus', label: 'Kitchen Bonus F&B' },
+                              { key: 'ondeskSalesBonus', label: 'Ondesk Sales Bonus' },
+                              { key: 'miscBonus', label: 'Misc Bonus' },
+                              { key: 'allPerformanceBonus', label: 'All Performance Bonus' },
+                              { key: 'vouchersSalesBonus', label: 'Vouchers Sales Bonus' },
+                              { key: 'membershipSalesBonus', label: 'Membership Sales Bonus' },
+                              { key: 'privateBookingsBonus', label: 'Private Bookings Bonus' }
+                            ].map(({ key, label }) => (
+                              <div key={key} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                <span className="text-sm font-medium text-gray-700">{label}</span>
+                                <input
+                                  type="number"
+                                  value={latestHeadData?.bonuses?.[key as BonusKey] || 0}
+                                  onChange={(e) => {
+                                    const value = parseFloat(e.target.value) || 0;
+                                    const updatedBonuses = {
+                                      ...latestHeadData?.bonuses,
+                                      [key]: value
+                                    } as NonNullable<typeof latestHeadData.bonuses>;
+                                    handleHeadDataUpdate('bonuses', updatedBonuses);
+                                  }}
+                                  className="w-32 px-2 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+                                  min="0"
+                                  step="0.01"
+                                />
+                              </div>
+                            ))}
+                            <div className="col-span-2 mt-4 p-3 bg-gray-50 rounded-lg">
+                              <div className="flex justify-between items-center">
+                                <span className="text-sm font-medium text-gray-700">Total Bonuses</span>
+                                <span className="text-lg font-semibold text-gray-900">
+                                  £{Object.values(latestHeadData?.bonuses || {}).reduce((sum, bonus) => sum + bonus, 0).toFixed(2)}
+                                </span>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -1290,33 +1565,56 @@ const VerificationPage: React.FC = () => {
                           </button>
                           <h2 className="text-xl font-semibold text-gray-900">Other Costs</h2>
                         </div>
+                        <div className="flex items-center space-x-3">
+                          <span
+                            className={`inline-block px-4 py-1 rounded-full text-sm font-medium ${getStatusColor(latestHeadData?.status?.otherCosts || 'pending')}`}
+                          >
+                            {(latestHeadData?.status?.otherCosts || 'pending').charAt(0).toUpperCase() + (latestHeadData?.status?.otherCosts || 'pending').slice(1)}
+                          </span>
+                          {user?.role === 'head' && (
+                            <button
+                              onClick={() => handleVerifyHeadData('otherCosts')}
+                              className={`p-2 transition-colors ${
+                                latestHeadData?.id && latestHeadData?.status?.otherCosts === 'edited'
+                                  ? 'text-green-700 hover:text-green-900'
+                                  : 'text-gray-400 cursor-not-allowed'
+                              }`}
+                              title="Confirm Other Costs"
+                              disabled={!latestHeadData?.id || latestHeadData?.status?.otherCosts !== 'edited'}
+                            >
+                              <FaCheck size={20} />
+                            </button>
+                          )}
+                        </div>
                       </div>
                       {!isOtherCostsCollapsed && (
-                        <div className="grid grid-cols-3 gap-4">
-                          {[
-                            { key: 'kitchenSalaryPaid', label: 'Kitchen Salary Paid' },
-                            { key: 'foodAndBeverageStock', label: 'F&B Stock' },
-                            { key: 'kitchenPL', label: 'Kitchen PL' }
-                          ].map(({ key, label }) => (
-                            <div key={key} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                              <span className="text-sm font-medium text-gray-700">{label}</span>
-                              <input
-                                type="number"
-                                value={latestClient?.otherCosts?.[key as keyof NonNullable<typeof latestClient.otherCosts>] || 0}
-                                onChange={(e) => {
-                                  const value = parseFloat(e.target.value) || 0;
-                                  const updatedOtherCosts = {
-                                    ...latestClient?.otherCosts,
-                                    [key]: value
-                                  } as NonNullable<typeof latestClient.otherCosts>;
-                                  handleClientUpdate({ otherCosts: updatedOtherCosts });
-                                }}
-                                className="w-32 px-2 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-green-500"
-                                min="0"
-                                step="0.01"
-                              />
-                            </div>
-                          ))}
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-3 gap-4">
+                            {[
+                              { key: 'kitchenSalaryPaid', label: 'Kitchen Salary Paid' },
+                              { key: 'foodAndBeverageStock', label: 'F&B Stock' },
+                              { key: 'kitchenPL', label: 'Kitchen PL' }
+                            ].map(({ key, label }) => (
+                              <div key={key} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                <span className="text-sm font-medium text-gray-700">{label}</span>
+                                <input
+                                  type="number"
+                                  value={latestHeadData?.otherCosts?.[key as keyof NonNullable<typeof latestHeadData.otherCosts>] || 0}
+                                  onChange={(e) => {
+                                    const value = parseFloat(e.target.value) || 0;
+                                    const updatedOtherCosts = {
+                                      ...latestHeadData?.otherCosts,
+                                      [key]: value
+                                    } as NonNullable<typeof latestHeadData.otherCosts>;
+                                    handleHeadDataUpdate('otherCosts', updatedOtherCosts);
+                                  }}
+                                  className="w-32 px-2 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+                                  min="0"
+                                  step="0.01"
+                                />
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -1334,16 +1632,6 @@ const VerificationPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Floating "+" Button - Only for admin */}
-      {user?.role === 'admin' && (
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="fixed bottom-6 right-6 bg-green-900 text-white w-14 h-14 rounded-full flex items-center justify-center text-2xl hover:bg-green-800 transition-colors shadow-lg z-50"
-        >
-          +
-        </button>
-      )}
-
       {selectedClient && (
         <SurveyModal
           isOpen={isModalOpen}
@@ -1354,6 +1642,7 @@ const VerificationPage: React.FC = () => {
           onSubmitSuccess={handleSubmitSuccess}
           initialData={selectedClient}
           selectedDate={selectedDate.toISOString().split('T')[0]}
+          onUpdate={handleClientUpdate}
         />
       )}
     </div>
