@@ -1,12 +1,5 @@
 export type UserRole = 'admin' | 'head' | 'boss';
-export type StatusType = 'pending' | 'edited' | 'Confirmed';
-export type Status = {
-  foodAndDrinkSales: StatusType;
-  treatments: StatusType;
-  preBookedData: StatusType;
-  bonuses: StatusType;
-  otherCosts: StatusType;
-};
+export type StatusType = 'Pending' | 'Edited' | 'Confirmed';
 
 export interface User {
   username: string;
@@ -17,19 +10,6 @@ export interface User {
 export interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
-}
-
-export interface Treatments {
-  entryOnly: { done: boolean; amount: number };
-  parenie: { done: boolean; amount: number };
-  aromaPark: { done: boolean; amount: number };
-  iceWrap: { done: boolean; amount: number };
-  scrub: { done: boolean; amount: number };
-  mudMask: { done: boolean; amount: number };
-  mudWrap: { done: boolean; amount: number };
-  aloeVera: { done: boolean; amount: number };
-  massage_25: { done: boolean; amount: number };
-  massage_50: { done: boolean; amount: number };
 }
 
 export interface DailyPreBooked {
@@ -43,8 +23,6 @@ export interface DailyPreBooked {
 }
 
 export interface PreBookedData {
-  preBookedValueNextWeek: number;
-  preBookedPeopleNextWeek: number;
   dailyPreBookedPeople?: DailyPreBooked;
   dailyPreBookedValue?: DailyPreBooked;
 }
@@ -98,17 +76,33 @@ export interface ClientInfo {
   status: StatusType;
 }
 
-export interface HeadData {
+export interface HeadDaily {
   id?: number | null;
   foodAndDrinkSales?: number;
-  treatments?: Treatments;
+  treatments?: {
+    entryOnly: { done: boolean; amount: number };
+    parenie: { done: boolean; amount: number };
+    aromaPark: { done: boolean; amount: number };
+    iceWrap: { done: boolean; amount: number };
+    scrub: { done: boolean; amount: number };
+    mudMask: { done: boolean; amount: number };
+    mudWrap: { done: boolean; amount: number };
+    aloeVera: { done: boolean; amount: number };
+    massage_25: { done: boolean; amount: number };
+    massage_50: { done: boolean; amount: number };
+  };
+  date?: string;
+  status: StatusType;
+}
+
+export interface HeadWeekly {
+  id?: number | null;
   preBookedData?: PreBookedData;
   bonuses?: Bonuses;
   otherCosts?: OtherCosts;
   date: string;
   createdBy: string;
-  isVerified: boolean;
-  status: Status;
+  status: StatusType;
 }
 
 export interface WeeklySummary {

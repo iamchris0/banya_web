@@ -24,81 +24,13 @@ const users = [
 // reporting - verify + financial data
 // viewer - just to view
 
-// In-memory storage for clients
+// In-memory storage for clients with persistence
 let clients = [];
+let headData = {};
 
 // Track users per page
 const usersByPage = new Map();
 
-// In-memory storage for head data
-let headData = [];
-
-// Initialize head data fields with pending status
-const initializeHeadDataFields = (date) => {
-  return {
-    id: headData.length + 1,
-    date,
-    foodAndDrinkSales: 0,
-    treatments: {
-      entryOnly: { done: false, amount: 0 },
-      parenie: { done: false, amount: 0 },
-      aromaPark: { done: false, amount: 0 },
-      iceWrap: { done: false, amount: 0 },
-      scrub: { done: false, amount: 0 },
-      mudMask: { done: false, amount: 0 },
-      mudWrap: { done: false, amount: 0 },
-      aloeVera: { done: false, amount: 0 },
-      massage_25: { done: false, amount: 0 },
-      massage_50: { done: false, amount: 0 }
-    },
-    preBookedData: {
-      preBookedValueNextWeek: 0,
-      preBookedPeopleNextWeek: 0,
-      dailyPreBookedPeople: {
-        monday: 0,
-        tuesday: 0,
-        wednesday: 0,
-        thursday: 0,
-        friday: 0,
-        saturday: 0,
-        sunday: 0
-      },
-      dailyPreBookedValue: {
-        monday: 0,
-        tuesday: 0,
-        wednesday: 0,
-        thursday: 0,
-        friday: 0,
-        saturday: 0,
-        sunday: 0
-      }
-    },
-    bonuses: {
-      kitchenBonus: 0,
-      ondeskSalesBonus: 0,
-      miscBonus: 0,
-      allPerformanceBonus: 0,
-      vouchersSalesBonus: 0,
-      membershipSalesBonus: 0,
-      privateBookingsBonus: 0
-    },
-    otherCosts: {
-      kitchenSalaryPaid: 0,
-      foodAndBeverageStock: 0,
-      kitchenPL: 0
-    },
-    createdBy: '',
-    isVerified: false,
-    status: {
-      headData: 'pending',
-      foodAndDrinkSales: 'pending',
-      treatments: 'pending',
-      preBookedData: 'pending',
-      bonuses: 'pending',
-      otherCosts: 'pending'
-    }
-  };
-};
 
 // Middleware to verify JWT
 const authenticateToken = (req, res, next) => {
@@ -216,11 +148,11 @@ app.post('/api/clients', authenticateToken, restrictToRoles(['admin']), (req, re
     date,
     createdBy: req.user.username,
     isVerified: false,
-    status: 'edited'
+    status: 'Edited'
   };
 
   clients.push(client);
-  res.json({ message: 'Client information submitted', client });
+  return res.json({ message: 'Client information submitted', client });
 });
 
 // Update client information
@@ -285,11 +217,11 @@ app.put('/api/clients/:id', authenticateToken, restrictToRoles(['admin', 'head']
     yottaWidgetTotal: Number(yottaWidgetTotal) || 0,
     date,
     isVerified: false,
-    status: 'edited'
+    status: 'Edited',
   };
 
   clients[clientIndex] = updatedClient;
-  res.json({ message: 'Client information updated', client: updatedClient });
+  return res.json({ message: 'Client information updated', client: updatedClient });
 });
 
 // Verify client information (Receipt Data)
@@ -307,22 +239,23 @@ app.patch('/api/clients/:id/verify', authenticateToken, restrictToRoles(['head']
   }
 
   // Update the survey status to Confirmed
-  clients[clientIndex].status = isVerified ? 'Confirmed' : 'edited';
-  res.json({ message: 'Client verification status updated', client: clients[clientIndex] });
+  clients[clientIndex].status = isVerified ? 'Confirmed' : 'Edited';
+  return res.json({ message: 'Client verification status updated', client: clients[clientIndex] });
 });
 
 // Get all clients
 app.get('/api/clients', authenticateToken, (req, res) => {
-  const { verified } = req.query;
+  const { date, verified } = req.query;
   let filteredClients = clients;
 
-  if (verified === 'false') {
-    filteredClients = clients.filter(client => !client.isVerified);
-  } else if (verified === 'true') {
-    filteredClients = clients.filter(client => client.isVerified);
+  if (verified === 'false') filteredClients = clients.filter(client => !client.isVerified);
+  else if (verified === 'true') filteredClients = clients.filter(client => client.isVerified);
+
+  if (date) {
+    filteredClients = filteredClients.filter(client => client.date === date);
   }
 
-  res.json({ clients: filteredClients });
+  return res.json({ clients: filteredClients });
 });
 
 // Get active users for a page
@@ -379,7 +312,7 @@ app.get('/api/clients/weekly-summary', authenticateToken, (req, res) => {
     return clientDate >= startDate && clientDate <= endDate;
   });
 
-  const weekHeadData = headData.filter(data => {
+  const weekHeadData = Object.values(headData).filter(data => {
     const dataDate = new Date(data.date);
     dataDate.setUTCHours(0, 0, 0, 0);
     return dataDate >= startDate && dataDate <= endDate;
@@ -570,145 +503,59 @@ app.get('/api/clients/weekly-summary', authenticateToken, (req, res) => {
   res.json({ summary });
 });
 
-// Submit head data
-app.post('/api/head-data', authenticateToken, restrictToRoles(['head']), (req, res) => {
-  const {
-    foodAndDrinkSales,
-    treatments,
-    preBookedData,
-    bonuses,
-    otherCosts,
-    date,
-  } = req.body;
-
-  if (!date) {
-    return res.status(400).json({ message: 'Missing required field: Date' });
-  }
-
-  try {
-
-    // Check if head data already exists for this date
-    const existingDataIndex = headData.findIndex(item => item.date === date);
-    
-    if (existingDataIndex !== -1) {
-      // Update existing data
-      const updatedData = {
-        ...headData[existingDataIndex],
-        foodAndDrinkSales: foodAndDrinkSales !== undefined ? Number(foodAndDrinkSales) : headData[existingDataIndex].foodAndDrinkSales,
-        treatments: treatments || headData[existingDataIndex].treatments,
-        preBookedData: preBookedData || headData[existingDataIndex].preBookedData,
-        bonuses: bonuses || headData[existingDataIndex].bonuses,
-        otherCosts: otherCosts || headData[existingDataIndex].otherCosts,
-        status: {
-          ...headData[existingDataIndex].status,
-          // Update both statuses together when either F&B Sales or Treatments change
-          foodAndDrinkSales: (foodAndDrinkSales !== undefined || treatments !== undefined) ? 'edited' : headData[existingDataIndex].status.foodAndDrinkSales,
-          treatments: (foodAndDrinkSales !== undefined || treatments !== undefined) ? 'edited' : headData[existingDataIndex].status.treatments,
-          // Update individual statuses for other sections
-          preBookedData: preBookedData !== undefined ? 'edited' : headData[existingDataIndex].status.preBookedData,
-          bonuses: bonuses !== undefined ? 'edited' : headData[existingDataIndex].status.bonuses,
-          otherCosts: otherCosts !== undefined ? 'edited' : headData[existingDataIndex].status.otherCosts
-        }
-      };
-
-      headData[existingDataIndex] = updatedData;
-      return res.json({ message: 'Head data updated', headData: updatedData });
-    }
-
-    // Create new data with pending status
-    const newData = initializeHeadDataFields(date);
-    newData.createdBy = req.user.username;
-    
-    // Update fields that were provided
-    if (foodAndDrinkSales !== undefined) {
-      newData.foodAndDrinkSales = Number(foodAndDrinkSales);
-      newData.status.foodAndDrinkSales = 'edited';
-      newData.status.treatments = 'edited';
-    }
-    if (treatments) {
-      newData.treatments = treatments;
-      newData.status.treatments = 'edited';
-      newData.status.foodAndDrinkSales = 'edited';
-    }
-    if (preBookedData) {
-      newData.preBookedData = preBookedData;
-      newData.status.preBookedData = 'edited';
-    }
-    if (bonuses) {
-      newData.bonuses = bonuses;
-      newData.status.bonuses = 'edited';
-    }
-    if (otherCosts) {
-      newData.otherCosts = otherCosts;
-      newData.status.otherCosts = 'edited';
-    }
-
-    headData.push(newData);
-    res.json({ message: 'Head data submitted', headData: newData });
-  } catch (error) {
-    console.error('Error handling head data:', error);
-    res.status(500).json({ message: 'Error handling head data', error: error.message });
-  }
-});
-
-// Verify head data (F&B Sales + Treatments, Prebooked Data, Bonuses, Other Costs)
-app.patch('/api/head-data/:id/verify', authenticateToken, restrictToRoles(['head']), (req, res) => {
-  const { id } = req.params;
-  const { field } = req.body;
-
-  if (!field || !['foodAndDrinkSales', 'treatments', 'preBookedData', 'bonuses', 'otherCosts'].includes(field)) {
-    return res.status(400).json({ message: 'Invalid field specified' });
-  }
-
-  const dataIndex = headData.findIndex(item => item.id === Number(id));
-  if (dataIndex === -1) {
-    return res.status(404).json({ message: 'Head data not found' });
-  }
-
-  // Update the status to Confirmed
-  headData[dataIndex].status[field] = 'Confirmed';
-
-  // If confirming F&B Sales or Treatments, update both statuses
-  if (field === 'foodAndDrinkSales' || field === 'treatments') {
-    headData[dataIndex].status.foodAndDrinkSales = 'Confirmed';
-    headData[dataIndex].status.treatments = 'Confirmed';
-  }
-
-  res.json({ message: 'Head data verified', headData: headData[dataIndex] });
-});
-
 // Get head data for a specific date
 app.get('/api/head-data', authenticateToken, (req, res) => {
   const { date } = req.query;
+
   if (!date) {
     return res.status(400).json({ message: 'Missing date query parameter' });
   }
 
   // Find existing data
-  const data = headData.find(item => item.date === date);
-  
-  if (!data) {
-    // Create default structure with pending status
-    const defaultData = initializeHeadDataFields(date);
-    defaultData.createdBy = req.user.username;
-    
-    // Add the default data to headData array
-    headData.push(defaultData);
-    return res.json({ headData: defaultData });
-  }
+  const selectedReceiptData = clients.find(item => item.date === date);
+  const selectedHeadData = headData[date];
 
-  res.json({ headData: data });
+  return res.json({ 
+    headData: selectedHeadData || null, 
+    receiptData: selectedReceiptData || null 
+  });
+});
+
+// Verify head data (F&B Sales + Treatments, Prebooked Data, Bonuses, Other Costs)
+app.post('/api/head-data/verify-daily-data', authenticateToken, restrictToRoles(['head']), (req, res) => {
+  const { date, headDailyData } = req.body;
+  const existingData = headData[date];
+  
+  if (!existingData) {
+    headData[date] = {
+      date,
+      ...headDailyData,
+      status: 'Confirmed'
+    };
+    console.log('New head data added:', headData[date]);
+    return res.json({ message: 'New head data added', headDailyData: headData[date] });
+  } else {
+    // Record found, update the existing entry
+    const updatedData = {
+      ...headDailyData,
+      status: 'Confirmed',
+      updatedAt: new Date().toISOString()
+    };
+    headData[date] = updatedData;
+    console.log('Existing head data updated:', updatedData);
+    return res.json({ message: 'Existing head data updated', headDailyData: updatedData });
+  }
 });
 
 // Get all head data
 app.get('/api/head-data/all', authenticateToken, (req, res) => {
   const { verified } = req.query;
-  let filteredData = headData;
+  let filteredData = Object.values(headData);
 
   if (verified === 'false') {
-    filteredData = headData.filter(data => !data.isVerified);
+    filteredData = filteredData.filter(data => !data.isVerified);
   } else if (verified === 'true') {
-    filteredData = headData.filter(data => data.isVerified);
+    filteredData = filteredData.filter(data => data.isVerified);
   }
 
   res.json({ headData: filteredData });

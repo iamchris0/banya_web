@@ -166,9 +166,9 @@ const DailyDataPage: React.FC = () => {
     switch (status) {
       case 'Confirmed':
         return 'bg-green-100 text-green-800';
-      case 'edited':
+      case 'Edited':
         return 'bg-yellow-100 text-yellow-800';
-      case 'pending':
+      case 'Pending':
         return 'bg-blue-100 text-blue-800';
       default:
         return 'bg-gray-100 text-gray-800';
@@ -237,12 +237,12 @@ const DailyDataPage: React.FC = () => {
                           <button
                             onClick={() => handleConfirm(latestClient)}
                             className={`p-2 transition-colors ${
-                              latestClient.id && latestClient.status === 'edited'
+                              latestClient.id && latestClient.status === 'Edited'
                                 ? 'text-green-700 hover:text-green-900'
                                 : 'text-gray-400 cursor-not-allowed'
                             }`}
                             title="Confirm Survey"
-                            disabled={!latestClient.id || latestClient.status !== 'edited'}
+                            disabled={!latestClient.id || latestClient.status !== 'Edited'}
                           >
                             <FaCheck size={20} />
                           </button>

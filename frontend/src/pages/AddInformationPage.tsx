@@ -135,7 +135,8 @@ const SurveyModal: React.FC<SurveyModalProps> = ({ isOpen, onClose, onSubmitSucc
             yottaWidgetTotal: parseInt(String(formData.yottaWidgetTotal) || '0'),
             date: selectedDate,
             createdBy: user.username,
-            status: 'edited'
+            isVerified: method === 'POST' ? false : true,
+            status: 'Edited'
           }),
         });
 
