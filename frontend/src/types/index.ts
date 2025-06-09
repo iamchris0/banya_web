@@ -13,25 +13,27 @@ export interface AuthState {
 }
 
 export interface DailyPreBooked {
-  monday: number;
-  tuesday: number;
-  wednesday: number;
-  thursday: number;
-  friday: number;
-  saturday: number;
-  sunday: number;
+  monday?: number;
+  tuesday?: number;
+  wednesday?: number;
+  thursday?: number;
+  friday?: number;
+  saturday?: number;
+  sunday?: number;
+  status?: StatusType;
 }
 
 export interface PreBookedData {
   dailyPreBookedPeople?: DailyPreBooked;
   dailyPreBookedValue?: DailyPreBooked;
+  status?: StatusType;
 }
 
 export interface Bonuses {
-  staffBonus: number;
-  onDeskBonus: number;
-  voucherSalesBonus: number;
-  privateBookingBonus: number;
+  staffBonus?: number;
+  onDeskBonus?: number;
+  voucherSalesBonus?: number;
+  privateBookingBonus?: number;
   kitchenBonus?: number;
   ondeskSalesBonus?: number;
   miscBonus?: number;
@@ -39,12 +41,14 @@ export interface Bonuses {
   vouchersSalesBonus?: number;
   membershipSalesBonus?: number;
   privateBookingsBonus?: number;
+  status?: StatusType;
 }
 
 export interface OtherCosts {
-  kitchenSalaryPaid: number;
-  foodAndBeverageStock: number;
-  kitchenPL: number;
+  kitchenSalaryPaid?: number;
+  foodAndBeverageStock?: number;
+  kitchenPL?: number;
+  status?: StatusType;
 }
 
 export interface ClientInfo {
@@ -100,9 +104,7 @@ export interface HeadWeekly {
   preBookedData?: PreBookedData;
   bonuses?: Bonuses;
   otherCosts?: OtherCosts;
-  date: string;
-  createdBy: string;
-  status: StatusType;
+  date?: string;
 }
 
 export interface WeeklySummary {

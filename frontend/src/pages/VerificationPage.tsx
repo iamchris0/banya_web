@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { ClientInfo, DailyPreBooked, Bonuses, PreBookedData, StatusType, WeeklySummary, HeadWeekly, HeadDaily } from '../types';
+import { ClientInfo, StatusType, WeeklySummary, HeadWeekly, HeadDaily, Bonuses, OtherCosts } from '../types';
 import Card from '../components/common/Card';
 import { FaCheck, FaArrowLeft, FaArrowRight, FaCalendarDay, FaCalendarWeek, FaCalendarAlt, FaRegEdit, FaChevronDown, FaChevronUp } from 'react-icons/fa';
 import SurveyModal from './AddInformationPage';
-import { generateWeeklyReport } from '../utils/generateWeeklyReport';
+// import { generateWeeklyReport } from '../utils/generateWeeklyReport';
+
+// Add DayOfWeek type
+type DayOfWeek = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
 
 const DEFAULT_TREATMENTS = {
   entryOnly: { done: false, amount: 0 },
@@ -21,37 +24,88 @@ const DEFAULT_TREATMENTS = {
 
 const VerificationPage: React.FC = () => {
   const { token, user } = useAuth();
+
   const [receiptData, setReceiptData] = useState<ClientInfo | null>(null);
   const [headDataDaily, setHeadDataDaily] = useState<HeadDaily | null>(null);
   const [headDataWeekly, setHeadDataWeekly] = useState<HeadWeekly | null>(null);
+  // const [headDataMonthly, setHeadDataMonthly] = useState<HeadMonthly | null>(null);
+
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [selectedMonthDate, setSelectedMonthDate] = useState(new Date());
+  // const [selectedMonthDate, setSelectedMonthDate] = useState(new Date());
+
   const [viewType, setViewType] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [direction, setDirection] = useState<'left' | 'right' | null>(null);
   const [isViewTransitioning, setIsViewTransitioning] = useState(false);
+  const [canNavigateNext, setCanNavigateNext] = useState(false);
+  const [canNavigatePrev, setCanNavigatePrev] = useState(true);
+
   const [isHeadDataCollapsed, setIsHeadDataCollapsed] = useState(true);
   const [isReceptionDataCollapsed, setIsReceptionDataCollapsed] = useState(true);
   const [isBonusesCollapsed, setIsBonusesCollapsed] = useState(true);
   const [isWeeklySummaryCollapsed, setIsWeeklySummaryCollapsed] = useState(true);
   const [isPrebookedCollapsed, setIsPrebookedCollapsed] = useState(false);
   const [isOtherCostsCollapsed, setIsOtherCostsCollapsed] = useState(true);
+
   const [weeklySummary, setWeeklySummary] = useState<WeeklySummary | null>(null);
   const pollingIntervalRef = useRef<number>();
-  const [canNavigateNext, setCanNavigateNext] = useState(false);
-  const [canNavigatePrev, setCanNavigatePrev] = useState(true);
 
-  const fetchDayData = async (date: Date) => {
+
+  // Add notification timeout refs
+  const notificationTimeoutRef = useRef<number>();
+  const errorTimeoutRef = useRef<number>();
+
+  // Function to show success message
+  const showSuccessMessage = (message: string) => {
+    setSuccessMessage(message);
+    // Clear any existing timeout
+    if (notificationTimeoutRef.current) {
+      window.clearTimeout(notificationTimeoutRef.current);
+    }
+    // Set new timeout to clear message after 2 seconds
+    notificationTimeoutRef.current = window.setTimeout(() => {
+      setSuccessMessage('');
+    }, 2000);
+  };
+
+  // Function to show error message
+  const showErrorMessage = (message: string) => {
+    setError(message);
+    // Clear any existing timeout
+    if (errorTimeoutRef.current) {
+      window.clearTimeout(errorTimeoutRef.current);
+    }
+    // Set new timeout to clear message after 3 seconds
+    errorTimeoutRef.current = window.setTimeout(() => {
+      setError('');
+    }, 2000);
+  };
+
+  // Cleanup notification timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (notificationTimeoutRef.current) {
+        window.clearTimeout(notificationTimeoutRef.current);
+      }
+      if (errorTimeoutRef.current) {
+        window.clearTimeout(errorTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const fetchDailyData = async (date: Date) => {
     if (!token) {
-      setError('No authentication token available');
+      showErrorMessage('No authentication token available');
       return;
     }
 
     try {
       // Fetch both client and head data in parallel
-      const response = await fetch(`http://localhost:2345/api/head-data?date=${dateUtils.toYYYYMMDD(date)}`, {
+      const response = await fetch(`http://localhost:2345/api/head-daily-data?date=${dateUtils.toYYYYMMDD(date)}`, {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -69,29 +123,25 @@ const VerificationPage: React.FC = () => {
       setReceiptData(data.receiptData);
 
     } catch (err) {
-      console.error('Fetch day data error:', err);
-      setError(err instanceof Error ? err.message : 'Error fetching data');
+      showErrorMessage(err instanceof Error ? err.message : 'Error fetching data');
     }
   };
 
   useEffect(() => {
     if (token) {
-      // Initial fetch
-      fetchDayData(selectedDate);
+      if (viewType === 'daily') {
+        fetchDailyData(selectedDate);
+      } else if (viewType === 'weekly') {
+        fetchWeeklyData(selectedDate);
+      }
       
-      // Remove polling interval
-      // pollingIntervalRef.current = window.setInterval(() => {
-      //   fetchDayData(selectedDate);
-      // }, 2000); // Poll every 2 seconds
-      
-      // Cleanup function
       return () => {
         if (pollingIntervalRef.current) {
           clearInterval(pollingIntervalRef.current);
         }
       };
     }
-  }, [token, selectedDate]);
+  }, [token, selectedDate, viewType]);
 
   // Date formatting utilities
   const dateUtils = {
@@ -185,7 +235,7 @@ const VerificationPage: React.FC = () => {
 
   useEffect(() => {
     checkNavigationAvailability();
-  }, [viewType, selectedDate, selectedMonthDate]);
+  }, [viewType, selectedDate]);
 
   const handlePrevPeriod = () => {
     if (!canNavigatePrev) return;
@@ -199,7 +249,7 @@ const VerificationPage: React.FC = () => {
         newDailyDate.setDate(newDailyDate.getDate() - 1);
         setTimeout(() => {
           setSelectedDate(newDailyDate);
-          fetchDayData(newDailyDate);
+          fetchDailyData(newDailyDate);
           setIsTransitioning(false);
           setDirection(null);
         }, 200);
@@ -209,7 +259,7 @@ const VerificationPage: React.FC = () => {
         newWeekDate.setDate(newWeekDate.getDate() - 7);
         setTimeout(() => {
           setSelectedDate(newWeekDate);
-          fetchDayData(newWeekDate);
+          fetchWeeklyData(newWeekDate);
           setIsTransitioning(false);
           setDirection(null);
         }, 200);
@@ -219,7 +269,7 @@ const VerificationPage: React.FC = () => {
         newMonthDate.setMonth(newMonthDate.getMonth() - 1);
         setTimeout(() => {
           setSelectedDate(newMonthDate);
-          fetchDayData(newMonthDate);
+          // fetchMonthlyData(newMonthDate);
           setIsTransitioning(false);
           setDirection(null);
         }, 200);
@@ -239,7 +289,7 @@ const VerificationPage: React.FC = () => {
         newDailyDate.setDate(newDailyDate.getDate() + 1);
         setTimeout(() => {
           setSelectedDate(newDailyDate);
-          fetchDayData(newDailyDate);
+          fetchDailyData(newDailyDate);
           setIsTransitioning(false);
           setDirection(null);
         }, 200);
@@ -249,7 +299,7 @@ const VerificationPage: React.FC = () => {
         newWeekDate.setDate(newWeekDate.getDate() + 7);
         setTimeout(() => {
           setSelectedDate(newWeekDate);
-          fetchDayData(newWeekDate);
+          fetchWeeklyData(newWeekDate);
           setIsTransitioning(false);
           setDirection(null);
         }, 200);
@@ -259,7 +309,7 @@ const VerificationPage: React.FC = () => {
         newMonthDate.setMonth(newMonthDate.getMonth() + 1);
         setTimeout(() => {
           setSelectedDate(newMonthDate);
-          fetchDayData(newMonthDate);
+          // fetchMonthlyData(newMonthDate);
           setIsTransitioning(false);
           setDirection(null);
         }, 200);
@@ -268,7 +318,7 @@ const VerificationPage: React.FC = () => {
   };
 
   const handleSubmitSuccess = () => {
-    fetchDayData(selectedDate);
+    fetchDailyData(selectedDate);
     setIsModalOpen(false);
   };
 
@@ -283,7 +333,7 @@ const VerificationPage: React.FC = () => {
 
   const handleClientUpdate = async (updates: Partial<ClientInfo>) => {
     if (!token || !receiptData?.id) {
-      setError('No authentication token available or no client selected');
+      showErrorMessage('No authentication token available or no client selected');
       return;
     }
 
@@ -305,14 +355,13 @@ const VerificationPage: React.FC = () => {
         throw new Error(errorData.message || `Failed to update client: ${response.status}`);
       }
 
-      fetchDayData(selectedDate);
+      fetchDailyData(selectedDate);
     } catch (err) {
-      console.error('Update client error:', err);
-      setError(err instanceof Error ? err.message : 'Error updating client data');
+      showErrorMessage(err instanceof Error ? err.message : 'Error updating client data');
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleDailyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setHeadDataDaily((prev) => {
       if (!prev) {
@@ -385,41 +434,101 @@ const VerificationPage: React.FC = () => {
 
   const handleVerifyDailyData = async (date: string) => {
     if (!token) {
-      setError('No authentication token available');
+      showErrorMessage('No authentication token available');
       return;
     }
     try {
-      const response = await fetch(`http://localhost:2345/api/head-data/verify-daily-data`, {
+      const response = await fetch(`http://localhost:2345/api/head-daily-data`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ date, headDailyData: headDataDaily }),
+        body: JSON.stringify({ date, newDailyData: headDataDaily }),
       });
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || `Failed to verify daily data: ${response.status}`);
       }
       const data = await response.json();
+
       setHeadDataDaily(data.headDailyData);
-      // Immediately fetch the latest data to ensure consistency
-      fetchDayData(new Date(date));
+      showSuccessMessage('Changes have been successfully made');
+
+      fetchDailyData(new Date(date));
     } catch (err) {
-      console.error('Verify daily data error:', err);
-      setError(err instanceof Error ? err.message : 'Error verifying daily data');
+      showErrorMessage(err instanceof Error ? err.message : 'Error verifying daily data');
+    }
+  };
+
+  const fetchWeeklyData = async (date: Date) => {
+    if (!token) {
+      showErrorMessage('No authentication token available');
+      return;
+    }
+    try {
+    const response = await fetch(`http://localhost:2345/api/head-weekly-data?weekStart=${dateUtils.toYYYYMMDD(date)}`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Failed to fetch weekly data: ${response.status}`);
+    }
+    const data = await response.json();
+    setHeadDataWeekly(data.headWeeklyData);
+    } catch (err) {
+      showErrorMessage(err instanceof Error ? err.message : 'Error fetching weekly data');
+    }
+  };
+
+  const handleVerifyWeeklyData = async (section: 'preBookedData' | 'bonuses' | 'otherCosts') => {
+    if (!token) {
+      showErrorMessage('No authentication token available');
+      return;
+    }
+
+    try {
+      const weekStartDate = dateUtils.getWeekStart(selectedDate);
+      const response = await fetch(`http://localhost:2345/api/head-weekly-data`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          date: dateUtils.toYYYYMMDD(weekStartDate),
+          section,
+          newWeeklyData: headDataWeekly
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Failed to verify weekly data: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setHeadDataWeekly(data.headWeeklyData);
+      showSuccessMessage('Changes have been successfully made');
+      fetchWeeklyData(selectedDate);
+    } catch (err) {
+      showErrorMessage(err instanceof Error ? err.message : 'Error verifying weekly data');
     }
   };
 
   const fetchWeeklySummary = async () => {
     if (!token) {
-      setError('No authentication token available');
+      showErrorMessage('No authentication token available');
       return;
     }
     try {
       // Get the weekly head data
       const weekStartDate = dateUtils.getWeekStart(selectedDate);
-      const headDataResponse = await fetch(`http://localhost:2345/api/head-data?date=${dateUtils.toYYYYMMDD(weekStartDate)}&isWeekly=true`, {
+      const headDataResponse = await fetch(`http://localhost:2345/api/head-daily-data?date=${dateUtils.toYYYYMMDD(weekStartDate)}&isWeekly=true`, {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -448,21 +557,169 @@ const VerificationPage: React.FC = () => {
       const summaryData = await summaryResponse.json();
       setWeeklySummary(summaryData.summary);
     } catch (err) {
-      console.error('Fetch weekly data error:', err);
-      setError(err instanceof Error ? err.message : 'Error fetching weekly data');
+      showErrorMessage(err instanceof Error ? err.message : 'Error fetching weekly data');
     }
   };
 
   useEffect(() => {
-    if (viewType === 'weekly') {
-      fetchWeeklySummary();
+    if (token) {
+      if (viewType === 'daily') {
+        fetchDailyData(selectedDate);
+      } else if (viewType === 'weekly') {
+        fetchWeeklyData(selectedDate);
+        fetchWeeklySummary();
+      }
+      
+      return () => {
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+        }
+      };
     }
-  }, [viewType, selectedDate, token]);
+  }, [token, selectedDate, viewType]);
 
-  console.log(headDataDaily);
+  const handleVerifyClientData = async (clientId: number) => {
+    if (!token) {
+      showErrorMessage('No authentication token available');
+      return;
+    }
+    try {
+      const response = await fetch(`http://localhost:2345/api/clients/${clientId}/verify`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ isVerified: true }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Failed to verify client data: ${response.status}`);
+      }
+      const data = await response.json();
+      setReceiptData(data.client);
+      showSuccessMessage('Changes have been successfully made');
+
+      fetchDailyData(selectedDate);
+    } catch (err) {
+      showErrorMessage(err instanceof Error ? err.message : 'Error verifying client data');
+    }
+  };
+
+  const handleWeeklyPreBookedUpdate = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const day = e.target.name;
+    const value = e.target.value === '' ? '' : parseInt(e.target.value, 10);
+    setHeadDataWeekly((prev) => {
+      if (!prev) return {
+        preBookedData: {
+          dailyPreBookedPeople: {
+            [day]: value
+          },
+          status: 'Edited' as StatusType
+        }
+      };
+      return {
+        ...prev,
+        preBookedData: {
+          ...prev.preBookedData,
+          dailyPreBookedPeople: {
+            ...prev.preBookedData?.dailyPreBookedPeople,
+            [day]: value
+          },
+          status: 'Edited' as StatusType
+        }
+      };
+    });
+  };
+
+  const handleWeeklyPreBookedValueUpdate = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const day = e.target.name;
+    const value = e.target.value === '' ? '' : parseInt(e.target.value, 10);
+    setHeadDataWeekly((prev) => {
+      if (!prev) return {
+        preBookedData: {
+          dailyPreBookedValue: {
+            [day]: value
+          },
+          status: 'Edited' as StatusType
+        }
+      };
+      return {
+        ...prev,
+        preBookedData: {
+          ...prev.preBookedData,
+          dailyPreBookedValue: {
+            ...prev.preBookedData?.dailyPreBookedValue,
+            [day]: value
+          },
+          status: 'Edited' as StatusType
+        }
+      };
+    });
+  };
+
+  const handleWeeklyBonusesUpdate = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const key = e.target.name;
+    const value = e.target.value === '' ? '' : parseInt(e.target.value, 10);
+    setHeadDataWeekly((prev) => {
+      if (!prev) return {
+        bonuses: {
+          [key]: value,
+          status: 'Edited' as StatusType
+        }
+      };
+      return {
+        ...prev,
+        bonuses: {
+          ...prev.bonuses,
+          [key]: value,
+          status: 'Edited' as StatusType
+        }
+      };
+    });
+  };
+
+  const handleWeeklyOtherCostsUpdate = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const key = e.target.name;
+    const value = e.target.value === '' ? '' : parseInt(e.target.value, 10);
+    setHeadDataWeekly((prev) => {
+      if (!prev) return {
+        otherCosts: {
+          [key]: value,
+          status: 'Edited' as StatusType
+        }
+      };
+      return {
+        ...prev,
+        otherCosts: {
+          ...prev.otherCosts,
+          [key]: value,
+          status: 'Edited' as StatusType
+        }
+      };
+    });
+  };
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50 text-gray-800 p-6 overflow-auto">
+      {/* Success Notification */}
+      {successMessage && (
+        <div className="fixed top-4 right-4 z-50 animate-fade-in">
+          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative shadow-lg">
+            <span className="block sm:inline">{successMessage}</span>
+          </div>
+        </div>
+      )}
+      
+      {/* Error Notification */}
+      {error && (
+        <div className="fixed top-4 right-4 z-50 animate-fade-in animate-fade-out">
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative shadow-lg">
+            <span className="block sm:inline">{error}</span>
+          </div>
+        </div>
+      )}
+
       <div className="flex-grow w-full max-w-7xl mx-auto pb-20">
         {/* View Type Switcher */}
         <div className="mb-6 flex items-center justify-center">
@@ -552,11 +809,6 @@ const VerificationPage: React.FC = () => {
                   : 'opacity-150 translate-x-0'
               }`}
             >
-              {error && (
-                <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
-                  <p className="text-red-800">{error}</p>
-                </div>
-              )}
 
               {viewType === 'daily' && (
                 <div className="space-y-6">
@@ -609,7 +861,7 @@ const VerificationPage: React.FC = () => {
                                       type="number"
                                       value={headDataDaily?.foodAndDrinkSales ?? 0}
                                       name="foodAndDrinkSales"
-                                      onChange={handleChange}
+                                      onChange={handleDailyChange}
                                       className="text-2xl font-semibold text-blue-700 w-full bg-transparent focus:outline-none px-2 py-1"
                                       min="0"
                                       step="1.0"
@@ -714,10 +966,10 @@ const VerificationPage: React.FC = () => {
                                   >
                                     {(receiptData?.status || 'Pending').charAt(0).toUpperCase() + (receiptData?.status || 'Pending').slice(1)}
                                   </span>
-                                  {(user?.role === 'head' || user?.role === 'boss' || user?.role === 'admin') && (
+                                  {(user?.role === 'head' || user?.role === 'boss') && (
                                     <button
                                       onClick={() => {
-                                        setreceiptData(receiptData);
+                                        setReceiptData(receiptData);
                                         setIsModalOpen(true);
                                       }}
                                       className="p-2 text-blue-700 hover:text-blue-800 transition-colors"
@@ -1170,20 +1422,20 @@ const VerificationPage: React.FC = () => {
                         </div>
                         <div className="flex items-center space-x-3">
                           <span
-                            className={`inline-block px-4 py-1 rounded-full text-sm font-medium ${getStatusColor(headData?.status?.preBookedData || 'Pending')}`}
+                            className={`inline-block px-4 py-1 rounded-full text-sm font-medium ${getStatusColor(headDataWeekly?.preBookedData?.status || 'Pending')}`}
                           >
-                            {(headData?.status?.preBookedData || 'Pending').charAt(0).toUpperCase() + (headData?.status?.preBookedData || 'Pending').slice(1)}
+                            {(headDataWeekly?.preBookedData?.status || 'Pending').charAt(0).toUpperCase() + (headDataWeekly?.preBookedData?.status || 'Pending').slice(1)}
                           </span>
                           {user?.role === 'head' && (
                             <button
-                              onClick={() => handleVerifyHeadData('preBookedData')}
+                              onClick={() => handleVerifyWeeklyData('preBookedData')}
                               className={`p-2 transition-colors ${
-                                headData?.id && headData?.status?.preBookedData === 'Edited'
+                                headDataWeekly?.preBookedData?.status === 'Edited'
                                   ? 'text-green-700 hover:text-green-900'
                                   : 'text-gray-400 cursor-not-allowed'
                               }`}
                               title="Confirm Prebooked Data"
-                              disabled={!headData?.id || headData?.status?.preBookedData !== 'Edited'}
+                              disabled={headDataWeekly?.preBookedData?.status !== 'Edited'}
                             >
                               <FaCheck size={20} />
                             </button>
@@ -1210,10 +1462,10 @@ const VerificationPage: React.FC = () => {
                                     <td className="px-6 py-4 whitespace-nowrap text-right">
                                       <input
                                         type="number"
-                                        value={headData?.preBookedData?.dailyPreBookedPeople?.[day as DayOfWeek] || 0}
+                                        name={day}
+                                        value={headDataWeekly?.preBookedData?.dailyPreBookedPeople?.[day as DayOfWeek] ?? 0}
                                         onChange={(e) => {
-                                          const value = parseInt(e.target.value) || 0;
-                                          handleDailyPreBookedUpdate(day as DayOfWeek, value);
+                                          handleWeeklyPreBookedUpdate(e);
                                         }}
                                         className="w-20 px-2 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-green-500 text-right"
                                         min="0"
@@ -1222,10 +1474,10 @@ const VerificationPage: React.FC = () => {
                                     <td className="px-6 py-4 whitespace-nowrap text-right">
                                       <input
                                         type="number"
-                                        value={headData?.preBookedData?.dailyPreBookedValue?.[day as DayOfWeek] || 0}
+                                        name={day}
+                                        value={headDataWeekly?.preBookedData?.dailyPreBookedValue?.[day as DayOfWeek] ?? 0}
                                         onChange={(e) => {
-                                          const value = parseFloat(e.target.value) || 0;
-                                          handleDailyPreBookedValueUpdate(day as DayOfWeek, value);
+                                          handleWeeklyPreBookedValueUpdate(e);
                                         }}
                                         className="w-24 px-2 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-green-500 text-right"
                                         min="0"
@@ -1237,10 +1489,12 @@ const VerificationPage: React.FC = () => {
                                 <tr className="bg-gray-50">
                                   <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">Total</td>
                                   <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 text-right">
-                                    {Object.values(headData?.preBookedData?.dailyPreBookedPeople || {}).reduce((sum, val) => sum + val, 0)}
+                                    {Object.entries(headDataWeekly?.preBookedData?.dailyPreBookedPeople || {}).reduce((sum, [key, val]) => 
+                                      key !== 'status' ? sum + (typeof val === 'number' ? val : 0) : sum, 0)}
                                   </td>
                                   <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 text-right">
-                                    £{Object.values(headData?.preBookedData?.dailyPreBookedValue || {}).reduce((sum, val) => sum + val, 0).toFixed(2)}
+                                    £{Object.entries(headDataWeekly?.preBookedData?.dailyPreBookedValue || {}).reduce((sum, [key, val]) => 
+                                      key !== 'status' ? sum + (typeof val === 'number' ? val : 0) : sum, 0).toFixed(2)}
                                   </td>
                                 </tr>
                               </tbody>
@@ -1266,20 +1520,20 @@ const VerificationPage: React.FC = () => {
                         </div>
                         <div className="flex items-center space-x-3">
                           <span
-                            className={`inline-block px-4 py-1 rounded-full text-sm font-medium ${getStatusColor(headData?.status?.bonuses || 'Pending')}`}
+                            className={`inline-block px-4 py-1 rounded-full text-sm font-medium ${getStatusColor(headDataWeekly?.bonuses?.status || 'Pending')}`}
                           >
-                            {(headData?.status?.bonuses || 'Pending').charAt(0).toUpperCase() + (headData?.status?.bonuses || 'Pending').slice(1)}
+                            {(headDataWeekly?.bonuses?.status || 'Pending').charAt(0).toUpperCase() + (headDataWeekly?.bonuses?.status || 'Pending').slice(1)}
                           </span>
                           {user?.role === 'head' && (
                             <button
-                              onClick={() => handleVerifyHeadData('bonuses')}
+                              onClick={() => handleVerifyWeeklyData('bonuses')}
                               className={`p-2 transition-colors ${
-                                headData?.id && headData?.status?.bonuses === 'Edited'
+                                headDataWeekly?.bonuses?.status === 'Edited'
                                   ? 'text-green-700 hover:text-green-900'
                                   : 'text-gray-400 cursor-not-allowed'
                               }`}
                               title="Confirm Bonuses"
-                              disabled={!headData?.id || headData?.status?.bonuses !== 'Edited'}
+                              disabled={headDataWeekly?.bonuses?.status !== 'Edited'}
                             >
                               <FaCheck size={20} />
                             </button>
@@ -1302,14 +1556,10 @@ const VerificationPage: React.FC = () => {
                                 <span className="text-sm font-medium text-gray-700">{label}</span>
                                 <input
                                   type="number"
-                                  value={headData?.bonuses?.[key as BonusKey] || 0}
+                                  name={key}
+                                  value={headDataWeekly?.bonuses?.[key as keyof Bonuses] ?? 0}
                                   onChange={(e) => {
-                                    const value = parseFloat(e.target.value) || 0;
-                                    const updatedBonuses = {
-                                      ...headData?.bonuses,
-                                      [key]: value
-                                    };
-                                    handleHeadDataUpdate('bonuses', updatedBonuses);
+                                    handleWeeklyBonusesUpdate(e);
                                   }}
                                   className="w-32 px-2 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-green-500"
                                   min="0"
@@ -1321,7 +1571,8 @@ const VerificationPage: React.FC = () => {
                               <div className="flex justify-between items-center">
                                 <span className="text-sm font-medium text-gray-700">Total Bonuses</span>
                                 <span className="text-lg font-semibold text-gray-900">
-                                  £{Object.values(headData?.bonuses || {}).reduce((sum, bonus) => sum + bonus, 0).toFixed(2)}
+                                  £{Object.entries(headDataWeekly?.bonuses || {}).reduce((sum, [key, val]) => 
+                                    key !== 'status' ? sum + (typeof val === 'number' ? val : 0) : sum, 0).toFixed(2)}
                                 </span>
                               </div>
                             </div>
@@ -1346,20 +1597,20 @@ const VerificationPage: React.FC = () => {
                         </div>
                         <div className="flex items-center space-x-3">
                           <span
-                            className={`inline-block px-4 py-1 rounded-full text-sm font-medium ${getStatusColor(headData?.status?.otherCosts || 'Pending')}`}
+                            className={`inline-block px-4 py-1 rounded-full text-sm font-medium ${getStatusColor(headDataWeekly?.otherCosts?.status || 'Pending')}`}
                           >
-                            {(headData?.status?.otherCosts || 'Pending').charAt(0).toUpperCase() + (headData?.status?.otherCosts || 'Pending').slice(1)}
+                            {(headDataWeekly?.otherCosts?.status || 'Pending').charAt(0).toUpperCase() + (headDataWeekly?.otherCosts?.status || 'Pending').slice(1)}
                           </span>
                           {user?.role === 'head' && (
                             <button
-                              onClick={() => handleVerifyHeadData('otherCosts')}
+                              onClick={() => handleVerifyWeeklyData('otherCosts')}
                               className={`p-2 transition-colors ${
-                                headData?.id && headData?.status?.otherCosts === 'Edited'
+                                headDataWeekly?.otherCosts?.status === 'Edited'
                                   ? 'text-green-700 hover:text-green-900'
                                   : 'text-gray-400 cursor-not-allowed'
                               }`}
                               title="Confirm Other Costs"
-                              disabled={!headData?.id || headData?.status?.otherCosts !== 'Edited'}
+                              disabled={headDataWeekly?.otherCosts?.status !== 'Edited'}
                             >
                               <FaCheck size={20} />
                             </button>
@@ -1378,14 +1629,10 @@ const VerificationPage: React.FC = () => {
                                 <span className="text-sm font-medium text-gray-700">{label}</span>
                                 <input
                                   type="number"
-                                  value={headData?.otherCosts?.[key as keyof NonNullable<typeof headData.otherCosts>] || 0}
+                                  name={key}
+                                  value={headDataWeekly?.otherCosts?.[key as keyof OtherCosts] ?? 0}
                                   onChange={(e) => {
-                                    const value = parseFloat(e.target.value) || 0;
-                                    const updatedOtherCosts = {
-                                      ...headData?.otherCosts,
-                                      [key]: value
-                                    };
-                                    handleHeadDataUpdate('otherCosts', updatedOtherCosts);
+                                    handleWeeklyOtherCostsUpdate(e);
                                   }}
                                   className="w-32 px-2 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-green-500"
                                   min="0"
@@ -1416,7 +1663,7 @@ const VerificationPage: React.FC = () => {
           isOpen={isModalOpen}
           onClose={() => {
             setIsModalOpen(false);
-            setreceiptData(null);
+            setReceiptData(null);
           }}
           onSubmitSuccess={handleSubmitSuccess}
           initialData={receiptData}

@@ -26,7 +26,8 @@ const users = [
 
 // In-memory storage for clients with persistence
 let clients = [];
-let headData = {};
+let headDailyData = {};
+let headWeeklyData = {};
 
 // Track users per page
 const usersByPage = new Map();
@@ -312,7 +313,7 @@ app.get('/api/clients/weekly-summary', authenticateToken, (req, res) => {
     return clientDate >= startDate && clientDate <= endDate;
   });
 
-  const weekHeadData = Object.values(headData).filter(data => {
+  const weekHeadData = Object.values(headWeeklyData).filter(data => {
     const dataDate = new Date(data.date);
     dataDate.setUTCHours(0, 0, 0, 0);
     return dataDate >= startDate && dataDate <= endDate;
@@ -338,20 +339,6 @@ app.get('/api/clients/weekly-summary', authenticateToken, (req, res) => {
       dataDate.setUTCHours(0, 0, 0, 0);
       return dataDate.getTime() === currentDate.getTime();
     });
-
-    // Initialize treatments with default values
-    const defaultTreatments = {
-      entryOnly: { value: 0 },
-      parenie: { value: 0 },
-      aromaPark: { value: 0 },
-      iceWrap: { value: 0 },
-      scrub: { value: 0 },
-      mudMask: { value: 0 },
-      mudWrap: { value: 0 },
-      aloeVera: { value: 0 },
-      massage_25: { value: 0 },
-      massage_50: { value: 0 }
-    };
 
     dailyData[formattedDate] = {
       visitors: dayClients.reduce((sum, client) => sum + (client.amountOfPeople || 0), 0),
@@ -504,7 +491,7 @@ app.get('/api/clients/weekly-summary', authenticateToken, (req, res) => {
 });
 
 // Get head data for a specific date
-app.get('/api/head-data', authenticateToken, (req, res) => {
+app.get('/api/head-daily-data', authenticateToken, (req, res) => {
   const { date } = req.query;
 
   if (!date) {
@@ -513,52 +500,103 @@ app.get('/api/head-data', authenticateToken, (req, res) => {
 
   // Find existing data
   const selectedReceiptData = clients.find(item => item.date === date);
-  const selectedHeadData = headData[date];
-
+  const selectedHeadData = headDailyData[date];
+  
   return res.json({ 
     headData: selectedHeadData || null, 
     receiptData: selectedReceiptData || null 
   });
 });
 
-// Verify head data (F&B Sales + Treatments, Prebooked Data, Bonuses, Other Costs)
-app.post('/api/head-data/verify-daily-data', authenticateToken, restrictToRoles(['head']), (req, res) => {
-  const { date, headDailyData } = req.body;
-  const existingData = headData[date];
+// Verify head data (F&B Sales + Treatments)
+app.post('/api/head-daily-data', authenticateToken, restrictToRoles(['head']), (req, res) => {
+  const { date, newDailyData } = req.body;
+  const existingData = headDailyData[date];
   
   if (!existingData) {
-    headData[date] = {
+    headDailyData[date] = {
       date,
-      ...headDailyData,
+      ...newDailyData,
       status: 'Confirmed'
     };
-    console.log('New head data added:', headData[date]);
-    return res.json({ message: 'New head data added', headDailyData: headData[date] });
+    
+    return res.json({ message: 'New head data added', headDailyData: headDailyData[date] });
   } else {
     // Record found, update the existing entry
     const updatedData = {
-      ...headDailyData,
-      status: 'Confirmed',
-      updatedAt: new Date().toISOString()
+      ...newDailyData,
+      status: 'Confirmed'
     };
-    headData[date] = updatedData;
-    console.log('Existing head data updated:', updatedData);
+    headDailyData[date] = updatedData;
+    
     return res.json({ message: 'Existing head data updated', headDailyData: updatedData });
   }
 });
 
-// Get all head data
-app.get('/api/head-data/all', authenticateToken, (req, res) => {
-  const { verified } = req.query;
-  let filteredData = Object.values(headData);
+app.get('/api/head-weekly-data', authenticateToken, (req, res) => {
+  const { weekStart } = req.query;
 
-  if (verified === 'false') {
-    filteredData = filteredData.filter(data => !data.isVerified);
-  } else if (verified === 'true') {
-    filteredData = filteredData.filter(data => data.isVerified);
+  if (!headWeeklyData[weekStart]) {
+    headWeeklyData[weekStart] = {
+      date: weekStart,
+      preBookedData: {
+        status: 'Pending'
+      },
+      bonuses: {
+        status: 'Pending'
+      },
+      otherCosts: {
+        status: 'Pending'
+      }
+    };
   }
 
-  res.json({ headData: filteredData });
+  return res.json({ headWeeklyData: headWeeklyData[weekStart] });
+});
+
+app.post('/api/head-weekly-data', authenticateToken, restrictToRoles(['head']), async (req, res) => {
+  try {
+    const { date, section, newWeeklyData } = req.body;
+    
+    // Get existing data or initialize new entry
+    const existingData = headWeeklyData[date] || {
+      date,
+      status: 'Pending',
+      preBookedData: {},
+      bonuses: {},
+      otherCosts: {}
+    };
+    
+    // Update only the specified section
+    switch (section) {
+      case 'preBookedData':
+        existingData.preBookedData = newWeeklyData.preBookedData;
+        existingData.preBookedData.status = 'Confirmed';
+        break;
+      case 'bonuses':
+        existingData.bonuses = newWeeklyData.bonuses;
+        existingData.bonuses.status = 'Confirmed';
+        break;
+      case 'otherCosts':
+        existingData.otherCosts = newWeeklyData.otherCosts;
+        existingData.otherCosts.status = 'Confirmed';
+        break;
+    }
+    
+    // Update status and save to dictionary
+    headWeeklyData[date] = existingData;
+    
+    res.json({ 
+      success: true, 
+      headWeeklyData: headWeeklyData[date]
+    });
+  } catch (error) {
+    console.error('Error updating weekly data:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to update weekly data' 
+    });
+  }
 });
 
 // Helper function to format date as dd.mm.yyyy
