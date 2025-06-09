@@ -538,7 +538,6 @@ app.get('/api/head-weekly-data', authenticateToken, (req, res) => {
 
   if (!headWeeklyData[weekStart]) {
     headWeeklyData[weekStart] = {
-      date: weekStart,
       preBookedData: {
         status: 'Pending'
       },
@@ -560,8 +559,6 @@ app.post('/api/head-weekly-data', authenticateToken, restrictToRoles(['head']), 
     
     // Get existing data or initialize new entry
     const existingData = headWeeklyData[date] || {
-      date,
-      status: 'Pending',
       preBookedData: {},
       bonuses: {},
       otherCosts: {}

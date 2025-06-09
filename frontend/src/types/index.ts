@@ -104,7 +104,6 @@ export interface HeadWeekly {
   preBookedData?: PreBookedData;
   bonuses?: Bonuses;
   otherCosts?: OtherCosts;
-  date?: string;
 }
 
 export interface WeeklySummary {
