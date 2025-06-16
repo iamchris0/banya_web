@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import bodyParser from 'body-parser';
 import cors from 'cors';
 import http from 'http';
+import xlsx from 'xlsx';
 
 const app = express();
 const PORT = 2345;
@@ -13,9 +14,9 @@ app.use(bodyParser.json());
 
 // Hardcoded admin user
 const users = [
-  { id: 1, username: 'reception', password: '123', role: 'admin' },
-  { id: 2, username: 'general operation', password: '123', role: 'head' },
-  { id: 3, username: 'elena', password: '123', role: 'boss' },
+  { id: 1, username: 'admin', password: '123', role: 'admin' },
+  { id: 2, username: 'irina', password: '123', role: 'head' },
+  { id: 3, username: 'elena', password: '123', role: 'head' },
   { id: 4, username: 'ksenia', password: '123', role: 'boss' },
 ];
 
@@ -24,11 +25,14 @@ const users = [
 // reporting - verify + financial data
 // viewer - just to view
 
-// In-memory storage for clients
+// In-memory storage for clients with persistence
 let clients = [];
+let headDailyData = {};
+let headWeeklyData = {};
 
 // Track users per page
 const usersByPage = new Map();
+
 
 // Middleware to verify JWT
 const authenticateToken = (req, res, next) => {
@@ -90,16 +94,34 @@ app.post('/api/clients', authenticateToken, restrictToRoles(['admin']), (req, re
     yottaLinksTotal,
     yottaWidgetAmount,
     yottaWidgetTotal,
-    dailyPreBooked,
-    dailyPreBookedValue,
-    treatments,
-    bonuses,
-    otherCosts,
     date,
   } = req.body;
 
   if (!amountOfPeople || !date) {
     return res.status(400).json({ message: 'Missing required fields: Amount Of People or Date' });
+  }
+
+  // Validate gender distribution
+  const totalGender = Number(male || 0) + Number(female || 0) + Number(otherGender || 0);
+  if (totalGender !== Number(amountOfPeople)) {
+    return res.status(400).json({ message: 'Sum of gender counts must equal total number of people' });
+  }
+
+  // Validate language distribution
+  const totalLanguage = Number(englishSpeaking || 0) + Number(russianSpeaking || 0);
+  if (totalLanguage > Number(amountOfPeople)) {
+    return res.status(400).json({ message: 'Total language speakers cannot exceed total number of people' });
+  }
+
+  // Validate timing distribution
+  const totalTiming = Number(offPeakClients || 0) + Number(peakTimeClients || 0);
+  if (totalTiming !== Number(amountOfPeople)) {
+    return res.status(400).json({ message: 'Sum of timing distribution must equal total number of people' });
+  }
+
+  // Validate new clients
+  if (Number(newClients || 0) > Number(amountOfPeople)) {
+    return res.status(400).json({ message: 'Number of new clients cannot exceed total number of people' });
   }
 
   const client = {
@@ -125,63 +147,14 @@ app.post('/api/clients', authenticateToken, restrictToRoles(['admin']), (req, re
     yottaLinksTotal: Number(yottaLinksTotal) || 0,
     yottaWidgetAmount: Number(yottaWidgetAmount) || 0,
     yottaWidgetTotal: Number(yottaWidgetTotal) || 0,
-    
-    foodAndDrinkSales: 0,
-    dailyPreBooked: dailyPreBooked || {
-      monday: 0,
-      tuesday: 0,
-      wednesday: 0,
-      thursday: 0,
-      friday: 0,
-      saturday: 0,
-      sunday: 0
-    },
-    dailyPreBookedValue: dailyPreBookedValue || {
-      monday: 0,
-      tuesday: 0,
-      wednesday: 0,
-      thursday: 0,
-      friday: 0,
-      saturday: 0,
-      sunday: 0
-    },
-    treatments: treatments || {
-      entryOnly: { done: false, amount: 0 },
-      parenie: { done: false, amount: 0 },
-      aromaPark: { done: false, amount: 0 },
-      iceWrap: { done: false, amount: 0 },
-      scrub: { done: false, amount: 0 },
-      mudMask: { done: false, amount: 0 },
-      mudWrap: { done: false, amount: 0 },
-      aloeVera: { done: false, amount: 0 },
-      massage_25: { done: false, amount: 0 },
-      massage_50: { done: false, amount: 0 }
-    },
-    bonuses: bonuses || {
-      kitchenBonus: 0,
-      ondeskSalesBonus: 0,
-      miscBonus: 0,
-      allPerformanceBonus: 0,
-      vouchersSalesBonus: 0,
-      membershipSalesBonus: 0,
-      privateBookingsBonus: 0
-    },
-    otherCosts: otherCosts || {
-      kitchenSalaryPaid: 0,
-      foodAndBeverageStock: 0,
-      kitchenPL: 0
-    },
     date,
     createdBy: req.user.username,
     isVerified: false,
-    status: {
-      survey: 'edited',
-      headData: 'edited'
-    }
+    status: 'Edited'
   };
 
   clients.push(client);
-  res.json({ message: 'Client information submitted', client });
+  return res.json({ message: 'Client information submitted', client });
 });
 
 // Update client information
@@ -209,12 +182,6 @@ app.put('/api/clients/:id', authenticateToken, restrictToRoles(['admin', 'head']
     yottaLinksTotal,
     yottaWidgetAmount,
     yottaWidgetTotal,
-    foodAndDrinkSales,
-    dailyPreBooked,
-    dailyPreBookedValue,
-    treatments,
-    bonuses,
-    otherCosts,
     date,
   } = req.body;
 
@@ -226,12 +193,6 @@ app.put('/api/clients/:id', authenticateToken, restrictToRoles(['admin', 'head']
   if (!amountOfPeople || !date) {
     return res.status(400).json({ message: 'Missing required fields: Amount Of People or Date' });
   }
-
-  // Determine which part was updated
-  const isHeadDataUpdate = req.user.role === 'head' && 
-    (foodAndDrinkSales !== undefined || treatments !== undefined || otherCosts !== undefined);
-  const isSurveyUpdate = req.user.role === 'admin' || 
-    (req.user.role === 'head' && !isHeadDataUpdate);
 
   const updatedClient = {
     ...clients[clientIndex],
@@ -256,199 +217,47 @@ app.put('/api/clients/:id', authenticateToken, restrictToRoles(['admin', 'head']
     yottaLinksTotal: Number(yottaLinksTotal) || 0,
     yottaWidgetAmount: Number(yottaWidgetAmount) || 0,
     yottaWidgetTotal: Number(yottaWidgetTotal) || 0,
-    foodAndDrinkSales: Number(foodAndDrinkSales) || 0,
-    dailyPreBooked: dailyPreBooked || clients[clientIndex].dailyPreBooked,
-    dailyPreBookedValue: dailyPreBookedValue || clients[clientIndex].dailyPreBookedValue,
-    treatments: treatments || clients[clientIndex].treatments,
-    bonuses: bonuses || clients[clientIndex].bonuses,
-    otherCosts: otherCosts || clients[clientIndex].otherCosts,
     date,
     isVerified: false,
-    status: {
-      ...clients[clientIndex].status,
-      survey: isSurveyUpdate ? 'edited' : clients[clientIndex].status.survey,
-      headData: isHeadDataUpdate ? 'edited' : clients[clientIndex].status.headData
-    }
+    status: 'Edited',
   };
 
   clients[clientIndex] = updatedClient;
-  res.json({ message: 'Client information updated', client: updatedClient });
+  return res.json({ message: 'Client information updated', client: updatedClient });
 });
 
-// Verify client information
+// Verify client information (Receipt Data)
 app.patch('/api/clients/:id/verify', authenticateToken, restrictToRoles(['head']), (req, res) => {
   const { id } = req.params;
-  const { isVerified, verifyType } = req.body;
+  const { isVerified } = req.body;
 
   const clientIndex = clients.findIndex(client => client.id === Number(id));
   if (clientIndex === -1) {
-    return res.status(404).json({ message: 'Invoice not found' });
+    return res.status(404).json({ message: 'Client not found' });
   }
 
   if (typeof isVerified !== 'boolean') {
     return res.status(400).json({ message: 'Invalid isVerified value' });
   }
 
-  if (!verifyType || !['survey', 'headData'].includes(verifyType)) {
-    return res.status(400).json({ message: 'Invalid verifyType. Must be either "survey" or "headData"' });
-  }
-
-  clients[clientIndex].status[verifyType] = isVerified ? 'Confirmed' : 'edited';
-  res.json({ message: 'Client verification status updated', client: clients[clientIndex] });
+  // Update the survey status to Confirmed
+  clients[clientIndex].status = isVerified ? 'Confirmed' : 'Edited';
+  return res.json({ message: 'Client verification status updated', client: clients[clientIndex] });
 });
 
 // Get all clients
 app.get('/api/clients', authenticateToken, (req, res) => {
-  const { verified } = req.query;
+  const { date, verified } = req.query;
   let filteredClients = clients;
 
-  if (verified === 'false') {
-    filteredClients = clients.filter(client => !client.isVerified);
-  } else if (verified === 'true') {
-    filteredClients = clients.filter(client => client.isVerified);
+  if (verified === 'false') filteredClients = clients.filter(client => !client.isVerified);
+  else if (verified === 'true') filteredClients = clients.filter(client => client.isVerified);
+
+  if (date) {
+    filteredClients = filteredClients.filter(client => client.date === date);
   }
 
-  res.json({ clients: filteredClients });
-});
-
-// In-memory storage for weekly data
-let weeklyData = [];
-
-// Submit or update weekly data
-app.post('/api/weekly-data', authenticateToken, restrictToRoles(['boss']), (req, res) => {
-  const {
-    staffBonus,
-    onDeskBonus,
-    voucherSalesBonus,
-    privateBookingBonus,
-    preBookedValueNextWeek,
-    preBookedPeopleNextWeek,
-    dailyPreBooked,
-    dailyPreBookedPeople,
-    date,
-    createdBy,
-  } = req.body;
-
-  if (!date) {
-    return res.status(400).json({ message: 'Missing required field: Date' });
-  }
-
-  // Normalize date to week start (Monday)
-  const weekStart = new Date(date);
-  const dayOfWeek = weekStart.getDay();
-  const diff = weekStart.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
-  weekStart.setDate(diff);
-  const weekStartStr = weekStart.toISOString().split('T')[0];
-
-  // Check if the week is more than 1 week ahead
-  const today = new Date();
-  const currentWeekStart = new Date(today);
-  const currentDayOfWeek = today.getDay();
-  const currentDiff = today.getDate() - currentDayOfWeek + (currentDayOfWeek === 0 ? -6 : 1);
-  currentWeekStart.setDate(currentDiff);
-  
-  const maxAllowedWeek = new Date(currentWeekStart);
-  maxAllowedWeek.setDate(maxAllowedWeek.getDate() + 7);
-  
-  if (weekStart > maxAllowedWeek) {
-    return res.status(400).json({ message: 'Cannot submit data for more than 1 week in advance' });
-  }
-
-  const existingDataIndex = weeklyData.findIndex(item => item.date === weekStartStr);
-
-  const data = {
-    id: existingDataIndex === -1 ? weeklyData.length + 1 : weeklyData[existingDataIndex].id,
-    staffBonus: Number(staffBonus) || 0,
-    onDeskBonus: Number(onDeskBonus) || 0,
-    voucherSalesBonus: Number(voucherSalesBonus) || 0,
-    privateBookingBonus: Number(privateBookingBonus) || 0,
-    preBookedValueNextWeek: Number(preBookedValueNextWeek) || 0,
-    preBookedPeopleNextWeek: Number(preBookedPeopleNextWeek) || 0,
-    dailyPreBooked: dailyPreBooked || {},
-    dailyPreBookedPeople: dailyPreBookedPeople || {},
-    date: weekStartStr,
-    createdBy: createdBy || req.user.username,
-    isVerified: false,
-    status: existingDataIndex === -1 ? 'edited' : 'Confirmed',
-  };
-
-  if (existingDataIndex === -1) {
-    weeklyData.push(data);
-  } else {
-    weeklyData[existingDataIndex] = data;
-  }
-
-  res.json({ message: 'Weekly data submitted', weeklyData: data });
-});
-
-// Update weekly data
-app.put('/api/weekly-data/:id', authenticateToken, restrictToRoles(['boss']), (req, res) => {
-  const { id } = req.params;
-  const {
-    staffBonus,
-    onDeskBonus,
-    voucherSalesBonus,
-    privateBookingBonus,
-    preBookedValueNextWeek,
-    preBookedPeopleNextWeek,
-    dailyPreBooked,
-    dailyPreBookedPeople,
-    date,
-    createdBy,
-  } = req.body;
-
-  const dataIndex = weeklyData.findIndex(item => item.id === parseInt(id));
-  if (dataIndex === -1) {
-    return res.status(404).json({ message: 'Weekly data not found' });
-  }
-
-  const updatedData = {
-    ...weeklyData[dataIndex],
-    staffBonus: Number(staffBonus) || 0,
-    onDeskBonus: Number(onDeskBonus) || 0,
-    voucherSalesBonus: Number(voucherSalesBonus) || 0,
-    privateBookingBonus: Number(privateBookingBonus) || 0,
-    preBookedValueNextWeek: Number(preBookedValueNextWeek) || 0,
-    preBookedPeopleNextWeek: Number(preBookedPeopleNextWeek) || 0,
-    dailyPreBooked: dailyPreBooked || {},
-    dailyPreBookedPeople: dailyPreBookedPeople || {},
-    date: date || weeklyData[dataIndex].date,
-    createdBy: createdBy || weeklyData[dataIndex].createdBy,
-    status: 'edited',
-  };
-
-  weeklyData[dataIndex] = updatedData;
-  res.json({ message: 'Weekly data updated', weeklyData: updatedData });
-});
-
-// Verify weekly data
-app.patch('/api/weekly-data/:id/verify', authenticateToken, restrictToRoles(['boss']), (req, res) => {
-  const { id } = req.params;
-  const { isVerified, status } = req.body;
-
-  const dataIndex = weeklyData.findIndex(item => item.id === Number(id));
-  if (dataIndex === -1) {
-    return res.status(404).json({ message: 'Weekly data not found' });
-  }
-
-  if (typeof isVerified !== 'boolean') {
-    return res.status(400).json({ message: 'Invalid isVerified value' });
-  }
-
-  weeklyData[dataIndex].isVerified = isVerified;
-  weeklyData[dataIndex].status = status || 'Confirmed';
-  res.json({ message: 'Weekly data verification status updated', weeklyData: weeklyData[dataIndex] });
-});
-
-// Get weekly data for a specific week
-app.get('/api/weekly-data', authenticateToken, restrictToRoles(['boss']), (req, res) => {
-  const { weekStart } = req.query;
-  if (!weekStart) {
-    return res.status(400).json({ message: 'Missing weekStart query parameter' });
-  }
-
-  const weekData = weeklyData.find(item => item.date === weekStart) || null;
-  res.json({ weeklyData: weekData });
+  return res.json({ clients: filteredClients });
 });
 
 // Get active users for a page
@@ -485,34 +294,55 @@ app.get('/api/active-users', authenticateToken, (req, res) => {
 });
 
 // Get aggregated weekly data
-app.get('/api/clients/weekly-summary', authenticateToken, (req, res) => {
+app.get('/api/weekly-summary', authenticateToken, (req, res) => {
   const { weekStart } = req.query;
   if (!weekStart) {
     return res.status(400).json({ message: 'Missing weekStart query parameter' });
   }
 
-  // Convert weekStart to Date object
+  // Convert weekStart to Date object and set time to midnight UTC
   const startDate = new Date(weekStart);
+  startDate.setUTCHours(0, 0, 0, 0);
   const endDate = new Date(startDate);
-  endDate.setDate(endDate.getDate() + 6); // Add 6 days to get the end of the week
+  endDate.setUTCDate(endDate.getUTCDate() + 6); // Add 6 days to get the end of the week
+  endDate.setUTCHours(23, 59, 59, 999); // Set to end of day
 
-  // Filter clients for the specified week
+  // Filter clients and head data for the specified week
   const weekClients = clients.filter(client => {
     const clientDate = new Date(client.date);
+    clientDate.setUTCHours(0, 0, 0, 0);
     return clientDate >= startDate && clientDate <= endDate;
   });
 
+  // Filter daily head data for the specified week
+  const dailyHeadData = Object.entries(headDailyData)
+    .filter(([date]) => {
+      const dataDate = new Date(date);
+      dataDate.setUTCHours(0, 0, 0, 0);
+      return dataDate >= startDate && dataDate <= endDate;
+    })
+    .map(([_, data]) => data);
+
+  
   // Create a map for daily data
   const dailyData = {};
   for (let i = 0; i < 7; i++) {
     const currentDate = new Date(startDate);
-    currentDate.setDate(currentDate.getDate() + i);
+    currentDate.setUTCDate(currentDate.getUTCDate() + i);
+    currentDate.setUTCHours(0, 0, 0, 0);
     const formattedDate = formatDate(currentDate);
     
-    // Filter clients for this specific day
+    // Filter clients and head data for this specific day
     const dayClients = weekClients.filter(client => {
       const clientDate = new Date(client.date);
-      return clientDate.toDateString() === currentDate.toDateString();
+      clientDate.setUTCHours(0, 0, 0, 0);
+      return clientDate.getTime() === currentDate.getTime();
+    });
+
+    const dayHeadData = dailyHeadData.filter(data => {
+      const dataDate = new Date(data.date);
+      dataDate.setUTCHours(0, 0, 0, 0);
+      return dataDate.getTime() === currentDate.getTime();
     });
 
     dailyData[formattedDate] = {
@@ -548,18 +378,38 @@ app.get('/api/clients/weekly-summary', authenticateToken, (req, res) => {
         amount: dayClients.reduce((sum, client) => sum + (client.yottaWidgetAmount || 0), 0),
         value: dayClients.reduce((sum, client) => sum + (client.yottaWidgetTotal || 0), 0)
       },
-      foodAndDrink: dayClients.reduce((sum, client) => sum + (client.foodAndDrinkSales || 0), 0),
+      foodAndDrink: dayHeadData.reduce((sum, data) => sum + (data.foodAndDrinkSales || 0), 0),
       treatments: {
-        entryOnly: dayClients.reduce((sum, client) => sum + ((client.treatments?.entryOnly?.amount || 0) * (client.treatments?.entryOnly?.done ? 1 : 0)), 0),
-        parenie: dayClients.reduce((sum, client) => sum + ((client.treatments?.parenie?.amount || 0) * (client.treatments?.parenie?.done ? 1 : 0)), 0),
-        aromaPark: dayClients.reduce((sum, client) => sum + ((client.treatments?.aromaPark?.amount || 0) * (client.treatments?.aromaPark?.done ? 1 : 0)), 0),
-        iceWrap: dayClients.reduce((sum, client) => sum + ((client.treatments?.iceWrap?.amount || 0) * (client.treatments?.iceWrap?.done ? 1 : 0)), 0),
-        scrub: dayClients.reduce((sum, client) => sum + ((client.treatments?.scrub?.amount || 0) * (client.treatments?.scrub?.done ? 1 : 0)), 0),
-        mudMask: dayClients.reduce((sum, client) => sum + ((client.treatments?.mudMask?.amount || 0) * (client.treatments?.mudMask?.done ? 1 : 0)), 0),
-        mudWrap: dayClients.reduce((sum, client) => sum + ((client.treatments?.mudWrap?.amount || 0) * (client.treatments?.mudWrap?.done ? 1 : 0)), 0),
-        aloeVera: dayClients.reduce((sum, client) => sum + ((client.treatments?.aloeVera?.amount || 0) * (client.treatments?.aloeVera?.done ? 1 : 0)), 0),
-        massage_25: dayClients.reduce((sum, client) => sum + ((client.treatments?.massage_25?.amount || 0) * (client.treatments?.massage_25?.done ? 1 : 0)), 0),
-        massage_50: dayClients.reduce((sum, client) => sum + ((client.treatments?.massage_50?.amount || 0) * (client.treatments?.massage_50?.done ? 1 : 0)), 0)
+        entryOnly: { 
+          value: dayHeadData.reduce((sum, data) => sum + ((data.treatments?.entryOnly?.amount || 0) * (data.treatments?.entryOnly?.done ? 1 : 0)), 0)
+        },
+        parenie: { 
+          value: dayHeadData.reduce((sum, data) => sum + ((data.treatments?.parenie?.amount || 0) * (data.treatments?.parenie?.done ? 1 : 0)), 0)
+        },
+        aromaPark: { 
+          value: dayHeadData.reduce((sum, data) => sum + ((data.treatments?.aromaPark?.amount || 0) * (data.treatments?.aromaPark?.done ? 1 : 0)), 0)
+        },
+        iceWrap: { 
+          value: dayHeadData.reduce((sum, data) => sum + ((data.treatments?.iceWrap?.amount || 0) * (data.treatments?.iceWrap?.done ? 1 : 0)), 0)
+        },
+        scrub: { 
+          value: dayHeadData.reduce((sum, data) => sum + ((data.treatments?.scrub?.amount || 0) * (data.treatments?.scrub?.done ? 1 : 0)), 0)
+        },
+        mudMask: { 
+          value: dayHeadData.reduce((sum, data) => sum + ((data.treatments?.mudMask?.amount || 0) * (data.treatments?.mudMask?.done ? 1 : 0)), 0)
+        },
+        mudWrap: { 
+          value: dayHeadData.reduce((sum, data) => sum + ((data.treatments?.mudWrap?.amount || 0) * (data.treatments?.mudWrap?.done ? 1 : 0)), 0)
+        },
+        aloeVera: { 
+          value: dayHeadData.reduce((sum, data) => sum + ((data.treatments?.aloeVera?.amount || 0) * (data.treatments?.aloeVera?.done ? 1 : 0)), 0)
+        },
+        massage_25: { 
+          value: dayHeadData.reduce((sum, data) => sum + ((data.treatments?.massage_25?.amount || 0) * (data.treatments?.massage_25?.done ? 1 : 0)), 0)
+        },
+        massage_50: { 
+          value: dayHeadData.reduce((sum, data) => sum + ((data.treatments?.massage_50?.amount || 0) * (data.treatments?.massage_50?.done ? 1 : 0)), 0)
+        }
       }
     };
   }
@@ -604,25 +454,379 @@ app.get('/api/clients/weekly-summary', authenticateToken, (req, res) => {
     },
     
     // Food and drink sales
-    totalFoodAndDrink: weekClients.reduce((sum, client) => sum + (client.foodAndDrinkSales || 0), 0),
+    totalFoodAndDrink: dailyHeadData.reduce((sum, data) => sum + (data.foodAndDrinkSales || 0), 0),
     
     // Treatments summary
     treatments: {
-      entryOnly: weekClients.reduce((sum, client) => sum + ((client.treatments?.entryOnly?.amount || 0) * (client.treatments?.entryOnly?.done ? 1 : 0)), 0),
-      parenie: weekClients.reduce((sum, client) => sum + ((client.treatments?.parenie?.amount || 0) * (client.treatments?.parenie?.done ? 1 : 0)), 0),
-      aromaPark: weekClients.reduce((sum, client) => sum + ((client.treatments?.aromaPark?.amount || 0) * (client.treatments?.aromaPark?.done ? 1 : 0)), 0),
-      iceWrap: weekClients.reduce((sum, client) => sum + ((client.treatments?.iceWrap?.amount || 0) * (client.treatments?.iceWrap?.done ? 1 : 0)), 0),
-      scrub: weekClients.reduce((sum, client) => sum + ((client.treatments?.scrub?.amount || 0) * (client.treatments?.scrub?.done ? 1 : 0)), 0),
-      mudMask: weekClients.reduce((sum, client) => sum + ((client.treatments?.mudMask?.amount || 0) * (client.treatments?.mudMask?.done ? 1 : 0)), 0),
-      mudWrap: weekClients.reduce((sum, client) => sum + ((client.treatments?.mudWrap?.amount || 0) * (client.treatments?.mudWrap?.done ? 1 : 0)), 0),
-      aloeVera: weekClients.reduce((sum, client) => sum + ((client.treatments?.aloeVera?.amount || 0) * (client.treatments?.aloeVera?.done ? 1 : 0)), 0),
-      massage_25: weekClients.reduce((sum, client) => sum + ((client.treatments?.massage_25?.amount || 0) * (client.treatments?.massage_25?.done ? 1 : 0)), 0),
-      massage_50: weekClients.reduce((sum, client) => sum + ((client.treatments?.massage_50?.amount || 0) * (client.treatments?.massage_50?.done ? 1 : 0)), 0)
-    },
-    dailyData
+      entryOnly: { 
+        value: dailyHeadData.reduce((sum, data) => sum + ((data.treatments?.entryOnly?.amount || 0) * (data.treatments?.entryOnly?.done ? 1 : 0)), 0)
+      },
+      parenie: { 
+        value: dailyHeadData.reduce((sum, data) => sum + ((data.treatments?.parenie?.amount || 0) * (data.treatments?.parenie?.done ? 1 : 0)), 0)
+      },
+      aromaPark: { 
+        value: dailyHeadData.reduce((sum, data) => sum + ((data.treatments?.aromaPark?.amount || 0) * (data.treatments?.aromaPark?.done ? 1 : 0)), 0)
+      },
+      iceWrap: { 
+        value: dailyHeadData.reduce((sum, data) => sum + ((data.treatments?.iceWrap?.amount || 0) * (data.treatments?.iceWrap?.done ? 1 : 0)), 0)
+      },
+      scrub: { 
+        value: dailyHeadData.reduce((sum, data) => sum + ((data.treatments?.scrub?.amount || 0) * (data.treatments?.scrub?.done ? 1 : 0)), 0)
+      },
+      mudMask: { 
+        value: dailyHeadData.reduce((sum, data) => sum + ((data.treatments?.mudMask?.amount || 0) * (data.treatments?.mudMask?.done ? 1 : 0)), 0)
+      },
+      mudWrap: { 
+        value: dailyHeadData.reduce((sum, data) => sum + ((data.treatments?.mudWrap?.amount || 0) * (data.treatments?.mudWrap?.done ? 1 : 0)), 0)
+      },
+      aloeVera: { 
+        value: dailyHeadData.reduce((sum, data) => sum + ((data.treatments?.aloeVera?.amount || 0) * (data.treatments?.aloeVera?.done ? 1 : 0)), 0)
+      },
+      massage_25: { 
+        value: dailyHeadData.reduce((sum, data) => sum + ((data.treatments?.massage_25?.amount || 0) * (data.treatments?.massage_25?.done ? 1 : 0)), 0)
+      },
+      massage_50: { 
+        value: dailyHeadData.reduce((sum, data) => sum + ((data.treatments?.massage_50?.amount || 0) * (data.treatments?.massage_50?.done ? 1 : 0)), 0)
+      }
+    }
   };
 
   res.json({ summary });
+});
+
+// Get head data for a specific date
+app.get('/api/head-daily-data', authenticateToken, (req, res) => {
+  const { date } = req.query;
+
+  if (!date) {
+    return res.status(400).json({ message: 'Missing date query parameter' });
+  }
+
+  // Find existing data
+  const selectedReceiptData = clients.find(item => item.date === date);
+  const selectedHeadData = headDailyData[date];
+  
+  return res.json({ 
+    headData: selectedHeadData || null, 
+    receiptData: selectedReceiptData || null 
+  });
+});
+
+// Verify head data (F&B Sales + Treatments)
+app.post('/api/head-daily-data', authenticateToken, restrictToRoles(['head']), (req, res) => {
+  const { date, newDailyData } = req.body;
+  const existingData = headDailyData[date];
+  
+  if (!existingData) {
+    headDailyData[date] = {
+      ...newDailyData,
+      status: 'Confirmed'
+    };
+    
+    return res.json({ message: 'New head data added', headDailyData: headDailyData[date] });
+  } else {
+    // Record found, update the existing entry
+    const updatedData = {
+      ...newDailyData,
+      status: 'Confirmed'
+    };
+    headDailyData[date] = updatedData;
+    
+    return res.json({ message: 'Existing head data updated', headDailyData: updatedData });
+  }
+});
+
+app.get('/api/head-weekly-data', authenticateToken, (req, res) => {
+  const { weekStart } = req.query;
+
+  if (!headWeeklyData[weekStart]) {
+    headWeeklyData[weekStart] = {
+      preBookedData: {
+        status: 'Pending'
+      },
+      bonuses: {
+        status: 'Pending'
+      },
+      otherCosts: {
+        status: 'Pending'
+      }
+    };
+  }
+
+  return res.json({ headWeeklyData: headWeeklyData[weekStart] });
+});
+
+app.post('/api/head-weekly-data', authenticateToken, restrictToRoles(['head']), async (req, res) => {
+  try {
+    const { date, section, newWeeklyData } = req.body;
+    
+    // Get existing data or initialize new entry
+    const existingData = headWeeklyData[date] || {
+      preBookedData: {},
+      bonuses: {},
+      otherCosts: {}
+    };
+    
+    // Update only the specified section
+    switch (section) {
+      case 'preBookedData':
+        existingData.preBookedData = newWeeklyData.preBookedData;
+        existingData.preBookedData.status = 'Confirmed';
+        break;
+      case 'bonuses':
+        existingData.bonuses = newWeeklyData.bonuses;
+        existingData.bonuses.status = 'Confirmed';
+        break;
+      case 'otherCosts':
+        existingData.otherCosts = newWeeklyData.otherCosts;
+        existingData.otherCosts.status = 'Confirmed';
+        break;
+    }
+    
+    // Update status and save to dictionary
+    headWeeklyData[date] = existingData;
+
+    res.json({ 
+      success: true, 
+      headWeeklyData: headWeeklyData[date]
+    });
+  } catch (error) {
+    console.error('Error updating weekly data:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to update weekly data' 
+    });
+  }
+});
+
+// Download weekly Excel report endpoint
+app.get('/api/download-weekly-excel', authenticateToken, async (req, res) => {
+  try {
+    const { weekStart } = req.query;
+
+    const weekEndDate = new Date(weekStart);
+    weekEndDate.setDate(weekEndDate.getDate() + 6);
+
+    const summaryData = {};
+    for (let i = 0; i < 7; i++) {
+      const currentDate = new Date(weekStart);
+      currentDate.setDate(currentDate.getDate() + i);
+      currentDate.setUTCHours(0, 0, 0, 0);
+      const formattedDate = formatDate(currentDate);
+      
+      // Get data for the current day from headDailyData
+      const clientsDaily = clients.find(client => client.date === formattedDate) || {};
+      const headDaily = headDailyData[formattedDate] || {};
+      
+      // Only include data with Confirmed status
+      if (clientsDaily.status === 'Confirmed') {
+        summaryData[formattedDate] = {
+          totalVisitors: clientsDaily.amountOfPeople || 0,
+          totalNewClients: clientsDaily.newClients || 0,
+
+          totalMale: clientsDaily.male || 0,
+          totalFemale: clientsDaily.female || 0,
+
+          totalEnglishSpeaking: clientsDaily.englishSpeaking || 0,
+          totalRussianSpeaking: clientsDaily.russianSpeaking || 0,
+
+          totalOffPeak: clientsDaily.offPeakClients || 0,
+          totalPeakTime: clientsDaily.peakTimeClients || 0,
+
+          totalOnlineMemberships: {
+            amount: clientsDaily.onlineMembershipsAmount || 0,
+            value: clientsDaily.onlineMembershipsTotal || 0
+          },
+          totalOfflineMemberships: {
+            amount: clientsDaily.offlineMembershipsAmount || 0,
+            value: clientsDaily.offlineMembershipsTotal || 0
+          },
+          totalOnlineVouchers: {
+            amount: clientsDaily.onlineVouchersAmount || 0,
+            value: clientsDaily.onlineVouchersTotal || 0
+          },
+          totalPaperVouchers: {
+            amount: clientsDaily.paperVouchersAmount || 0,
+            value: clientsDaily.paperVouchersTotal || 0
+          },
+          totalYottaLinks: {
+            amount: clientsDaily.yottaLinksAmount || 0,
+            value: clientsDaily.yottaLinksTotal || 0
+          },
+          totalYottaWidget: {
+            amount: clientsDaily.yottaWidgetAmount || 0,
+            value: clientsDaily.yottaWidgetTotal || 0
+          }
+        };
+      }
+
+      if (headDaily.status === 'Confirmed') {
+        summaryData[formattedDate].treatments = headDaily.treatments;
+        summaryData[formattedDate].foodAndDrinkSales = headDaily.foodAndDrinkSales;
+      }
+    }
+
+    // Add confirmed headWeeklyData to summary
+    const weeklyData = headWeeklyData[weekStart] || {};
+
+    if (weeklyData.bonuses?.status === 'Confirmed') {
+      summaryData.bonuses = weeklyData.bonuses;
+    }
+    if (weeklyData.otherCosts?.status === 'Confirmed') {
+      summaryData.otherCosts = weeklyData.otherCosts;
+    }
+
+    // Create workbook and worksheet
+    const workbook = xlsx.utils.book_new();
+    
+    // Prepare the data for Excel
+    const excelData = Object.entries(summaryData)
+      .filter(([key]) => key !== 'bonuses' && key !== 'otherCosts')
+      .map(([date, data]) => {
+        return {
+          'Date': new Date(date.split('.').reverse().join('-')).toLocaleDateString(),
+          'Total Visitors': data.totalVisitors || 0,
+          'Total Male': data.totalMale || 0,
+          'Total Female': data.totalFemale || 0,
+          'Total New Clients': data.totalNewClients || 0,
+          'Total English Speaking': data.totalEnglishSpeaking || 0,
+          'Total Russian Speaking': data.totalRussianSpeaking || 0,
+          'Total Off Peak': data.totalOffPeak || 0,
+          'Total Peak Time': data.totalPeakTime || 0,
+          'Food & Drink Sales': data.foodAndDrinkSales || 0,
+          'Entry Only': data.treatments?.entryOnly?.amount || 0,
+          'Parenie': data.treatments?.parenie?.amount || 0,
+          'Aroma Park': data.treatments?.aromaPark?.amount || 0,
+          'Ice Wrap': data.treatments?.iceWrap?.amount || 0,
+          'Scrub': data.treatments?.scrub?.amount || 0,
+          'Mud Mask': data.treatments?.mudMask?.amount || 0,
+          'Mud Wrap': data.treatments?.mudWrap?.amount || 0,
+          'Aloe Vera': data.treatments?.aloeVera?.amount || 0,
+          'Massage 25': data.treatments?.massage_25?.amount || 0,
+          'Massage 50': data.treatments?.massage_50?.amount || 0,
+          'Total Treatments': Object.values(data.treatments || {}).reduce((sum, treatment) => 
+            sum + (treatment.amount || 0), 0
+          ),
+          'Online Memberships Amount': data.totalOnlineMemberships?.amount || 0,
+          'Online Memberships Value': data.totalOnlineMemberships?.value || 0,
+          'Offline Memberships Amount': data.totalOfflineMemberships?.amount || 0,
+          'Offline Memberships Value': data.totalOfflineMemberships?.value || 0,
+          'Online Vouchers Amount': data.totalOnlineVouchers?.amount || 0,
+          'Online Vouchers Value': data.totalOnlineVouchers?.value || 0,
+          'Paper Vouchers Amount': data.totalPaperVouchers?.amount || 0,
+          'Paper Vouchers Value': data.totalPaperVouchers?.value || 0,
+          'Yotta Links Amount': data.totalYottaLinks?.amount || 0,
+          'Yotta Links Value': data.totalYottaLinks?.value || 0,
+          'Yotta Widget Amount': data.totalYottaWidget?.amount || 0,
+          'Yotta Widget Value': data.totalYottaWidget?.value || 0,
+          'F&B + Treatments Total': (data.foodAndDrinkSales || 0) + 
+            Object.values(data.treatments || {}).reduce((sum, treatment) => 
+              sum + (treatment.amount || 0), 0
+            )
+        };
+      });
+
+    // Add totals row
+    const totals = {
+      'Date': 'TOTAL',
+      'Total Visitors': excelData.reduce((sum, row) => sum + row['Total Visitors'], 0),
+      'Total Male': excelData.reduce((sum, row) => sum + row['Total Male'], 0),
+      'Total Female': excelData.reduce((sum, row) => sum + row['Total Female'], 0),
+      'Total New Clients': excelData.reduce((sum, row) => sum + row['Total New Clients'], 0),
+      'Total English Speaking': excelData.reduce((sum, row) => sum + row['Total English Speaking'], 0),
+      'Total Russian Speaking': excelData.reduce((sum, row) => sum + row['Total Russian Speaking'], 0),
+      'Total Off Peak': excelData.reduce((sum, row) => sum + row['Total Off Peak'], 0),
+      'Total Peak Time': excelData.reduce((sum, row) => sum + row['Total Peak Time'], 0),
+      'Food & Drink Sales': excelData.reduce((sum, row) => sum + row['Food & Drink Sales'], 0),
+      'Entry Only': excelData.reduce((sum, row) => sum + row['Entry Only'], 0),
+      'Parenie': excelData.reduce((sum, row) => sum + row['Parenie'], 0),
+      'Aroma Park': excelData.reduce((sum, row) => sum + row['Aroma Park'], 0),
+      'Ice Wrap': excelData.reduce((sum, row) => sum + row['Ice Wrap'], 0),
+      'Scrub': excelData.reduce((sum, row) => sum + row['Scrub'], 0),
+      'Mud Mask': excelData.reduce((sum, row) => sum + row['Mud Mask'], 0),
+      'Mud Wrap': excelData.reduce((sum, row) => sum + row['Mud Wrap'], 0),
+      'Aloe Vera': excelData.reduce((sum, row) => sum + row['Aloe Vera'], 0),
+      'Massage 25': excelData.reduce((sum, row) => sum + row['Massage 25'], 0),
+      'Massage 50': excelData.reduce((sum, row) => sum + row['Massage 50'], 0),
+      'Total Treatments': excelData.reduce((sum, row) => sum + row['Total Treatments'], 0),
+      'F&B + Treatments Total': excelData.reduce((sum, row) => sum + row['F&B + Treatments Total'], 0),
+      'Online Memberships Amount': excelData.reduce((sum, row) => sum + row['Online Memberships Amount'], 0),
+      'Online Memberships Value': excelData.reduce((sum, row) => sum + row['Online Memberships Value'], 0),
+      'Offline Memberships Amount': excelData.reduce((sum, row) => sum + row['Offline Memberships Amount'], 0),
+      'Offline Memberships Value': excelData.reduce((sum, row) => sum + row['Offline Memberships Value'], 0),
+      'Online Vouchers Amount': excelData.reduce((sum, row) => sum + row['Online Vouchers Amount'], 0),
+      'Online Vouchers Value': excelData.reduce((sum, row) => sum + row['Online Vouchers Value'], 0),
+      'Paper Vouchers Amount': excelData.reduce((sum, row) => sum + row['Paper Vouchers Amount'], 0),
+      'Paper Vouchers Value': excelData.reduce((sum, row) => sum + row['Paper Vouchers Value'], 0),
+      'Yotta Links Amount': excelData.reduce((sum, row) => sum + row['Yotta Links Amount'], 0),
+      'Yotta Links Value': excelData.reduce((sum, row) => sum + row['Yotta Links Value'], 0),
+      'Yotta Widget Amount': excelData.reduce((sum, row) => sum + row['Yotta Widget Amount'], 0),
+      'Yotta Widget Value': excelData.reduce((sum, row) => sum + row['Yotta Widget Value'], 0),
+      'Bonuses': excelData.reduce((sum, row) => sum + row['Bonuses'], 0),
+      'Other Costs': excelData.reduce((sum, row) => sum + row['Other Costs'], 0)
+    };
+    excelData.push(totals);
+
+    // Create worksheet
+    const worksheet = xlsx.utils.json_to_sheet(excelData);
+
+    // Set column widths
+    const columnWidths = {
+      'A': 15,  // Date
+      'B': 15,  // Total Visitors
+      'C': 15,  // Total Male
+      'D': 15,  // Total Female
+      'E': 15,  // Total New Clients
+      'F': 20,  // Total English Speaking
+      'G': 20,  // Total Russian Speaking
+      'H': 15,  // Total Off Peak
+      'I': 15,  // Total Peak Time
+      'J': 20,  // Food & Drink Sales
+      'K': 15,  // Entry Only
+      'L': 15,  // Parenie
+      'M': 15,  // Aroma Park
+      'N': 15,  // Ice Wrap
+      'O': 15,  // Scrub
+      'P': 15,  // Mud Mask
+      'Q': 15,  // Mud Wrap
+      'R': 15,  // Aloe Vera
+      'S': 15,  // Massage 25
+      'T': 15,  // Massage 50
+      'U': 20,  // Total Treatments
+      'AH': 25, // F&B + Treatments Total
+      'V': 20,  // Online Memberships Amount
+      'W': 20,  // Online Memberships Value
+      'X': 20,  // Offline Memberships Amount
+      'Y': 20,  // Offline Memberships Value
+      'Z': 20,  // Online Vouchers Amount
+      'AA': 20, // Online Vouchers Value
+      'AB': 20, // Paper Vouchers Amount
+      'AC': 20, // Paper Vouchers Value
+      'AD': 20, // Yotta Links Amount
+      'AE': 20, // Yotta Links Value
+      'AF': 20, // Yotta Widget Amount
+      'AG': 20, // Yotta Widget Value
+      'AI': 20, // Bonuses
+      'AJ': 20  // Other Costs
+    };
+    worksheet['!cols'] = Object.values(columnWidths).map(width => ({ width }));
+
+    // Add the worksheet to the workbook
+    xlsx.utils.book_append_sheet(workbook, worksheet, 'Weekly Report');
+
+    // Generate buffer
+    const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    // Set headers for file download
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=weekly_report_${weekStart}.xlsx`);
+
+    // Send the file
+    res.send(buffer);
+  } catch (error) {
+    console.error('Error generating Excel file:', error);
+    res.status(500).json({ message: 'Error generating Excel file' });
+  }
 });
 
 // Helper function to format date as dd.mm.yyyy
@@ -630,7 +834,7 @@ const formatDate = (date) => {
   const day = date.getDate().toString().padStart(2, '0');
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
   const year = date.getFullYear();
-  return `${day}.${month}.${year}`;
+  return `${year}-${month}-${day}`;
 };
 
 const server = http.createServer(app);
