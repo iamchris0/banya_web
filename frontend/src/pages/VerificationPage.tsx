@@ -2,9 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { ClientInfo, StatusType, WeeklySummary, HeadWeekly, HeadDaily, Bonuses, OtherCosts } from '../types';
 import Card from '../components/common/Card';
-import { FaCheck, FaArrowLeft, FaArrowRight, FaCalendarDay, FaCalendarWeek, FaCalendarAlt, FaRegEdit, FaChevronDown, FaChevronUp } from 'react-icons/fa';
+import { FaCheck, FaArrowLeft, FaArrowRight, FaCalendarDay, FaCalendarWeek, FaCalendarAlt, FaRegEdit, FaChevronDown, FaChevronUp, FaFileExcel } from 'react-icons/fa';
 import SurveyModal from './AddInformationPage';
-// import { generateWeeklyReport } from '../utils/generateWeeklyReport';
 
 // Add DayOfWeek type
 type DayOfWeek = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
@@ -35,7 +34,20 @@ const VerificationPage: React.FC = () => {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
-  // const [selectedMonthDate, setSelectedMonthDate] = useState(new Date());
+  const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => {
+    const date = new Date();
+    const day = date.getDay();
+    const daysToSubtract = day === 1 ? 0 : day === 0 ? 6 : day - 1;
+    date.setDate(date.getDate() - daysToSubtract);
+    date.setHours(0, 0, 0, 0);
+    return date;
+  });
+  const [currentMonthStart, setCurrentMonthStart] = useState<Date>(() => {
+    const date = new Date();
+    date.setDate(1);
+    date.setHours(0, 0, 0, 0);
+    return date;
+  });
 
   const [viewType, setViewType] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -52,7 +64,6 @@ const VerificationPage: React.FC = () => {
   const [isOtherCostsCollapsed, setIsOtherCostsCollapsed] = useState(true);
 
   const [weeklySummary, setWeeklySummary] = useState<WeeklySummary | null>(null);
-  const pollingIntervalRef = useRef<number>();
 
 
   // Add notification timeout refs
@@ -127,21 +138,24 @@ const VerificationPage: React.FC = () => {
     }
   };
 
+  // Single useEffect for data fetching based on view type
   useEffect(() => {
-    if (token) {
-      if (viewType === 'daily') {
+    if (!token) return;
+
+    switch (viewType) {
+      case 'daily':
         fetchDailyData(selectedDate);
-      } else if (viewType === 'weekly') {
-        fetchWeeklyData(selectedDate);
-      }
-      
-      return () => {
-        if (pollingIntervalRef.current) {
-          clearInterval(pollingIntervalRef.current);
-        }
-      };
+        break;
+      case 'weekly':
+        const weekStart = dateUtils.getWeekStart(selectedDate);
+        fetchWeeklyData(weekStart);
+        fetchWeeklySummary();
+        break;
+      case 'monthly':
+        // Handle monthly data fetching when implemented
+        break;
     }
-  }, [token, selectedDate, viewType]);
+  }, [token, viewType, selectedDate]);
 
   // Date formatting utilities
   const dateUtils = {
@@ -188,9 +202,33 @@ const VerificationPage: React.FC = () => {
       return result;
     },
 
+    // Get month start for a given date
+    getMonthStart: (date: Date) => {
+      const result = new Date(date);
+      result.setDate(1);
+      result.setHours(0, 0, 0, 0);
+      return result;
+    },
+
+    // Get month end for a given date
+    getMonthEnd: (date: Date) => {
+      const result = new Date(date);
+      result.setMonth(result.getMonth() + 1);
+      result.setDate(0);
+      result.setHours(23, 59, 59, 999);
+      return result;
+    },
+
     // Format week range for display
     formatWeekRange: (startDate: Date, endDate: Date) => {
       return `${dateUtils.toDisplay(startDate)} - ${dateUtils.toDisplay(endDate)}`;
+    },
+
+    // Format month for display
+    formatMonth: (date: Date) => {
+      const month = date.toLocaleString('default', { month: 'long' });
+      const year = date.getFullYear();
+      return `${month} ${year}`;
     }
   };
 
@@ -249,26 +287,39 @@ const VerificationPage: React.FC = () => {
         newDailyDate.setDate(newDailyDate.getDate() - 1);
         setTimeout(() => {
           setSelectedDate(newDailyDate);
-          fetchDailyData(newDailyDate);
+          // Update week and month if needed
+          const weekStart = dateUtils.getWeekStart(newDailyDate);
+          const monthStart = dateUtils.getMonthStart(newDailyDate);
+          setCurrentWeekStart(weekStart);
+          setCurrentMonthStart(monthStart);
+          // fetchDailyData(newDailyDate);
           setIsTransitioning(false);
           setDirection(null);
         }, 200);
         break;
       case 'weekly':
-        const newWeekDate = new Date(selectedDate);
+        const newWeekDate = new Date(currentWeekStart);
         newWeekDate.setDate(newWeekDate.getDate() - 7);
         setTimeout(() => {
+          setCurrentWeekStart(newWeekDate);
           setSelectedDate(newWeekDate);
-          fetchWeeklyData(newWeekDate);
+          
+          const monthStart = dateUtils.getMonthStart(newWeekDate);
+          setCurrentMonthStart(monthStart);
+          // fetchWeeklyData(newWeekDate);
           setIsTransitioning(false);
           setDirection(null);
         }, 200);
         break;
       case 'monthly':
-        const newMonthDate = new Date(selectedDate);
+        const newMonthDate = new Date(currentMonthStart);
         newMonthDate.setMonth(newMonthDate.getMonth() - 1);
         setTimeout(() => {
+          setCurrentMonthStart(newMonthDate);
           setSelectedDate(newMonthDate);
+          // Update week if needed
+          const weekStart = dateUtils.getWeekStart(newMonthDate);
+          setCurrentWeekStart(weekStart);
           // fetchMonthlyData(newMonthDate);
           setIsTransitioning(false);
           setDirection(null);
@@ -289,26 +340,39 @@ const VerificationPage: React.FC = () => {
         newDailyDate.setDate(newDailyDate.getDate() + 1);
         setTimeout(() => {
           setSelectedDate(newDailyDate);
-          fetchDailyData(newDailyDate);
+          // Update week and month if needed
+          const weekStart = dateUtils.getWeekStart(newDailyDate);
+          const monthStart = dateUtils.getMonthStart(newDailyDate);
+          setCurrentWeekStart(weekStart);
+          setCurrentMonthStart(monthStart);
+          // fetchDailyData(newDailyDate);
           setIsTransitioning(false);
           setDirection(null);
         }, 200);
         break;
       case 'weekly':
-        const newWeekDate = new Date(selectedDate);
+        const newWeekDate = new Date(currentWeekStart);
         newWeekDate.setDate(newWeekDate.getDate() + 7);
         setTimeout(() => {
+          setCurrentWeekStart(newWeekDate);
           setSelectedDate(newWeekDate);
-          fetchWeeklyData(newWeekDate);
+          
+          const monthStart = dateUtils.getMonthStart(newWeekDate);
+          setCurrentMonthStart(monthStart);
+          // fetchWeeklyData(newWeekDate);
           setIsTransitioning(false);
           setDirection(null);
         }, 200);
         break;
       case 'monthly':
-        const newMonthDate = new Date(selectedDate);
+        const newMonthDate = new Date(currentMonthStart);
         newMonthDate.setMonth(newMonthDate.getMonth() + 1);
         setTimeout(() => {
+          setCurrentMonthStart(newMonthDate);
           setSelectedDate(newMonthDate);
+          // Update week if needed
+          const weekStart = dateUtils.getWeekStart(newMonthDate);
+          setCurrentWeekStart(weekStart);
           // fetchMonthlyData(newMonthDate);
           setIsTransitioning(false);
           setDirection(null);
@@ -318,15 +382,31 @@ const VerificationPage: React.FC = () => {
   };
 
   const handleSubmitSuccess = () => {
-    fetchDailyData(selectedDate);
+    // fetchDailyData(selectedDate);
     setIsModalOpen(false);
   };
 
   const handleViewChange = (newViewType: 'daily' | 'weekly' | 'monthly') => {
     if (newViewType === viewType) return;
     setIsViewTransitioning(true);
+    
+    // Update the selected date based on the new view type
+    let newDate: Date;
+    switch (newViewType) {
+      case 'daily':
+        newDate = selectedDate;
+        break;
+      case 'weekly':
+        newDate = currentWeekStart;
+        break;
+      case 'monthly':
+        newDate = currentMonthStart;
+        break;
+    }
+
     setTimeout(() => {
       setViewType(newViewType);
+      setSelectedDate(newDate);
       setIsViewTransitioning(false);
     }, 200);
   };
@@ -453,7 +533,7 @@ const VerificationPage: React.FC = () => {
       const data = await response.json();
 
       setHeadDataDaily(data.headDailyData);
-      showSuccessMessage('Changes have been successfully made');
+      showSuccessMessage('Changes have been successfully applied');
 
       fetchDailyData(new Date(date));
     } catch (err) {
@@ -467,19 +547,21 @@ const VerificationPage: React.FC = () => {
       return;
     }
     try {
-    const response = await fetch(`http://localhost:2345/api/head-weekly-data?weekStart=${dateUtils.toYYYYMMDD(date)}`, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || `Failed to fetch weekly data: ${response.status}`);
-    }
-    const data = await response.json();
-    setHeadDataWeekly(data.headWeeklyData);
+      const response = await fetch(`http://localhost:2345/api/head-weekly-data?weekStart=${dateUtils.toYYYYMMDD(date)}`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Failed to fetch weekly data: ${response.status}`);
+      }
+      const data = await response.json();
+      if (data.headWeeklyData) {
+        setHeadDataWeekly(data.headWeeklyData);
+      }
     } catch (err) {
       showErrorMessage(err instanceof Error ? err.message : 'Error fetching weekly data');
     }
@@ -490,9 +572,10 @@ const VerificationPage: React.FC = () => {
       showErrorMessage('No authentication token available');
       return;
     }
-
+    
     try {
       const weekStartDate = dateUtils.getWeekStart(selectedDate);
+
       const response = await fetch(`http://localhost:2345/api/head-weekly-data`, {
         method: 'POST',
         headers: {
@@ -513,8 +596,8 @@ const VerificationPage: React.FC = () => {
 
       const data = await response.json();
       setHeadDataWeekly(data.headWeeklyData);
-      showSuccessMessage('Changes have been successfully made');
-      fetchWeeklyData(selectedDate);
+      showSuccessMessage('Changes have been successfully applied');
+      fetchWeeklyData(currentWeekStart);
     } catch (err) {
       showErrorMessage(err instanceof Error ? err.message : 'Error verifying weekly data');
     }
@@ -528,7 +611,7 @@ const VerificationPage: React.FC = () => {
     try {
       // Get the weekly head data
       const weekStartDate = dateUtils.getWeekStart(selectedDate);
-      const headDataResponse = await fetch(`http://localhost:2345/api/head-daily-data?date=${dateUtils.toYYYYMMDD(weekStartDate)}&isWeekly=true`, {
+      const headDataResponse = await fetch(`http://localhost:2345/api/head-daily-data?date=${dateUtils.toYYYYMMDD(weekStartDate)}`, {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -540,10 +623,9 @@ const VerificationPage: React.FC = () => {
         throw new Error(errorData.message || `Failed to fetch weekly data: ${headDataResponse.status}`);
       }
       const headData = await headDataResponse.json();
-      setHeadDataWeekly(headData.headData);
 
       // Get the weekly summary using the correct week start date
-      const summaryResponse = await fetch(`http://localhost:2345/api/clients/weekly-summary?weekStart=${dateUtils.toYYYYMMDD(weekStartDate)}`, {
+      const summaryResponse = await fetch(`http://localhost:2345/api/weekly-summary?weekStart=${dateUtils.toYYYYMMDD(weekStartDate)}`, {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -555,28 +637,12 @@ const VerificationPage: React.FC = () => {
         throw new Error(errorData.message || `Failed to fetch weekly summary: ${summaryResponse.status}`);
       }
       const summaryData = await summaryResponse.json();
-      setWeeklySummary(summaryData.summary);
+
+      setWeeklySummary({...summaryData.summary, ...headData.headData});
     } catch (err) {
       showErrorMessage(err instanceof Error ? err.message : 'Error fetching weekly data');
     }
   };
-
-  useEffect(() => {
-    if (token) {
-      if (viewType === 'daily') {
-        fetchDailyData(selectedDate);
-      } else if (viewType === 'weekly') {
-        fetchWeeklyData(selectedDate);
-        fetchWeeklySummary();
-      }
-      
-      return () => {
-        if (pollingIntervalRef.current) {
-          clearInterval(pollingIntervalRef.current);
-        }
-      };
-    }
-  }, [token, selectedDate, viewType]);
 
   const handleVerifyClientData = async (clientId: number) => {
     if (!token) {
@@ -598,7 +664,7 @@ const VerificationPage: React.FC = () => {
       }
       const data = await response.json();
       setReceiptData(data.client);
-      showSuccessMessage('Changes have been successfully made');
+      showSuccessMessage('Changes have been successfully applied');
 
       fetchDailyData(selectedDate);
     } catch (err) {
@@ -700,6 +766,59 @@ const VerificationPage: React.FC = () => {
     });
   };
 
+  const handleDownloadExcel = async () => {
+    if (!token) {
+      showErrorMessage('No authentication token available');
+      return;
+    }
+
+    try {
+      const weekStart = dateUtils.toYYYYMMDD(dateUtils.getWeekStart(selectedDate));
+
+      const response = await fetch(`http://localhost:2345/api/download-weekly-excel?weekStart=${weekStart}`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to download Excel file');
+      }
+
+      // Get the blob from the response
+      const blob = await response.blob();
+      
+      // Create a download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      
+      // Set the filename using the week range
+      const weekEnd = dateUtils.getWeekEnd(selectedDate);
+      const filename = `weekly_report_${dateUtils.toYYYYMMDD(dateUtils.getWeekStart(selectedDate))}_to_${dateUtils.toYYYYMMDD(weekEnd)}.xlsx`;
+      link.setAttribute('download', filename);
+      
+      // Append to body, click, and remove
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      showSuccessMessage('Excel report downloaded successfully');
+    } catch (err) {
+      showErrorMessage(err instanceof Error ? err.message : 'Error downloading Excel file');
+    }
+  };
+
+  // useEffect(() => {
+  //   console.log('headDataWeekly', headDataWeekly);
+  //   console.log('headDataDaily', headDataDaily);
+  //   console.log('weeklySummary', weeklySummary);
+  // }, [headDataWeekly, headDataDaily, weeklySummary]);
+
   return (
     <div className="flex flex-col min-h-screen bg-gray-50 text-gray-800 p-6 overflow-auto">
       {/* Success Notification */}
@@ -775,8 +894,8 @@ const VerificationPage: React.FC = () => {
           </button>
           <span className="text-xl font-medium">
             {viewType === 'daily' && dateUtils.toDisplay(selectedDate)}
-            {viewType === 'weekly' && dateUtils.formatWeekRange(dateUtils.getWeekStart(selectedDate), dateUtils.getWeekEnd(selectedDate))}
-            {viewType === 'monthly' && dateUtils.toDisplay(selectedDate)}
+            {viewType === 'weekly' && dateUtils.formatWeekRange(currentWeekStart, dateUtils.getWeekEnd(currentWeekStart))}
+            {viewType === 'monthly' && dateUtils.formatMonth(currentMonthStart)}
           </span>
           <button 
             onClick={handleNextPeriod} 
@@ -1215,113 +1334,129 @@ const VerificationPage: React.FC = () => {
                           </button>
                           <h2 className="text-xl font-semibold text-gray-900">Weekly Summary</h2>
                         </div>
+                        <div className="flex items-center space-x-3">
+                          <button
+                            onClick={handleDownloadExcel}
+                            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                          >
+                            <FaFileExcel className="mr-2" />
+                            Download Excel
+                          </button>
+                        </div>
                       </div>
                       {!isWeeklySummaryCollapsed && weeklySummary && (
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                          {/* Client Information */}
-                          <div className="bg-gray-50 p-4 rounded-lg">
-                            <h3 className="text-lg font-medium text-gray-900 mb-3">Client Information</h3>
-                            <div className="space-y-4">
-                              <div className="bg-white rounded-md shadow-sm overflow-hidden">
-                                <div className="grid grid-cols-2 gap-px bg-gray-200">
-                                  <div className="bg-white p-2">
-                                    <p className="text-xs text-gray-500 mb-1">Total Visitors</p>
-                                    <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalVisitors}</p>
-                                  </div>
-                                  <div className="bg-white p-2">
-                                    <p className="text-xs text-gray-500 mb-1">New Clients</p>
-                                    <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalNewClients}</p>
-                                  </div>
-                                  <div className="bg-white p-2">
-                                    <p className="text-xs text-gray-500 mb-1">Male</p>
-                                    <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalMale}</p>
-                                  </div>
-                                  <div className="bg-white p-2">
-                                    <p className="text-xs text-gray-500 mb-1">Female</p>
-                                    <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalFemale}</p>
+                        <div className="grid grid-cols-3 gap-6 items-stretch" style={{ minHeight: '400px' }}>
+                          {/* Client Information (with demographics/timing) */}
+                          <div className="flex flex-col h-full">
+                            <div className="bg-gray-50 p-4 rounded-lg flex flex-col h-full">
+                              <h3 className="text-lg font-medium text-gray-900 mb-3 ml-2">Client Information</h3>
+                              <div className="space-y-4 flex-1">
+                                <div className="bg-white rounded-md shadow-sm overflow-hidden">
+                                  <div className="grid grid-cols-2 gap-px bg-gray-200">
+                                    <div className="bg-white p-2">
+                                      <p className="text-xs text-gray-500 mb-1">Total Visitors</p>
+                                      <p className="text-sm font-semibold text-gray-900 text-right">{weeklySummary.totalVisitors}</p>
+                                    </div>
+                                    <div className="bg-white p-2">
+                                      <p className="text-xs text-gray-500 mb-1">New Clients</p>
+                                      <p className="text-sm font-semibold text-gray-900 text-right">{weeklySummary.totalNewClients}</p>
+                                    </div>
+                                    <div className="bg-white p-2">
+                                      <p className="text-xs text-gray-500 mb-1">Male</p>
+                                      <p className="text-sm font-semibold text-gray-900 text-right">{weeklySummary.totalMale}</p>
+                                    </div>
+                                    <div className="bg-white p-2">
+                                      <p className="text-xs text-gray-500 mb-1">Female</p>
+                                      <p className="text-sm font-semibold text-gray-900 text-right">{weeklySummary.totalFemale}</p>
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                              <div className="bg-white rounded-md shadow-sm overflow-hidden">
-                                <div className="grid grid-cols-2 gap-px bg-gray-200">
-                                  <div className="bg-white p-2">
-                                    <p className="text-xs text-gray-500 mb-1">English Speaking</p>
-                                    <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalEnglishSpeaking}</p>
-                                  </div>
-                                  <div className="bg-white p-2">
-                                    <p className="text-xs text-gray-500 mb-1">Russian Speaking</p>
-                                    <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalRussianSpeaking}</p>
-                                  </div>
-                                  <div className="bg-white p-2">
-                                    <p className="text-xs text-gray-500 mb-1">Off-Peak</p>
-                                    <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalOffPeak}</p>
-                                  </div>
-                                  <div className="bg-white p-2">
-                                    <p className="text-xs text-gray-500 mb-1">Peak-Time</p>
-                                    <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalPeakTime}</p>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Sales & Transactions */}
-                          <div className="bg-gray-50 p-4 rounded-lg">
-                            <h3 className="text-lg font-medium text-gray-900 mb-3">Sales & Transactions</h3>
-                            <div className="space-y-4">
-                              <div className="bg-white rounded-md shadow-sm overflow-hidden">
-                                <div className="grid grid-cols-2 gap-px bg-gray-200">
-                                  <div className="bg-white p-2">
-                                    <p className="text-xs text-gray-500 mb-1">Online Memberships</p>
-                                    <div className="flex justify-between items-center">
-                                      <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalOnlineMemberships.amount}</p>
-                                      <p className="text-sm font-semibold text-green-700">£{weeklySummary.totalOnlineMemberships.value}</p>
+                                {/* Demographics & Timing grid inside the same card */}
+                                <div className="bg-white rounded-md shadow-sm overflow-hidden">
+                                  <div className="grid grid-cols-2 gap-px bg-gray-200">
+                                    <div className="bg-white p-2">
+                                      <p className="text-xs text-gray-500 mb-1">English Speaking</p>
+                                      <p className="text-sm font-semibold text-gray-900 text-right">{weeklySummary.totalEnglishSpeaking}</p>
                                     </div>
-                                  </div>
-                                  <div className="bg-white p-2">
-                                    <p className="text-xs text-gray-500 mb-1">Offline Memberships</p>
-                                    <div className="flex justify-between items-center">
-                                      <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalOfflineMemberships.amount}</p>
-                                      <p className="text-sm font-semibold text-green-700">£{weeklySummary.totalOfflineMemberships.value}</p>
+                                    <div className="bg-white p-2">
+                                      <p className="text-xs text-gray-500 mb-1">Russian Speaking</p>
+                                      <p className="text-sm font-semibold text-gray-900 text-right">{weeklySummary.totalRussianSpeaking}</p>
                                     </div>
-                                  </div>
-                                  <div className="bg-white p-2">
-                                    <p className="text-xs text-gray-500 mb-1">Online Vouchers</p>
-                                    <div className="flex justify-between items-center">
-                                      <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalOnlineVouchers.amount}</p>
-                                      <p className="text-sm font-semibold text-green-700">£{weeklySummary.totalOnlineVouchers.value}</p>
+                                    <div className="bg-white p-2">
+                                      <p className="text-xs text-gray-500 mb-1">Off-Peak</p>
+                                      <p className="text-sm font-semibold text-gray-900 text-right">{weeklySummary.totalOffPeak}</p>
                                     </div>
-                                  </div>
-                                  <div className="bg-white p-2">
-                                    <p className="text-xs text-gray-500 mb-1">Paper Vouchers</p>
-                                    <div className="flex justify-between items-center">
-                                      <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalPaperVouchers.amount}</p>
-                                      <p className="text-sm font-semibold text-green-700">£{weeklySummary.totalPaperVouchers.value}</p>
-                                    </div>
-                                  </div>
-                                  <div className="bg-white p-2">
-                                    <p className="text-xs text-gray-500 mb-1">Yotta Links</p>
-                                    <div className="flex justify-between items-center">
-                                      <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalYottaLinks.amount}</p>
-                                      <p className="text-sm font-semibold text-green-700">£{weeklySummary.totalYottaLinks.value}</p>
-                                    </div>
-                                  </div>
-                                  <div className="bg-white p-2">
-                                    <p className="text-xs text-gray-500 mb-1">Yotta Widget</p>
-                                    <div className="flex justify-between items-center">
-                                      <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalYottaWidget.amount}</p>
-                                      <p className="text-sm font-semibold text-green-700">£{weeklySummary.totalYottaWidget.value}</p>
+                                    <div className="bg-white p-2">
+                                      <p className="text-xs text-gray-500 mb-1">Peak-Time</p>
+                                      <p className="text-sm font-semibold text-gray-900 text-right">{weeklySummary.totalPeakTime}</p>
                                     </div>
                                   </div>
                                 </div>
                               </div>
                             </div>
                           </div>
-
-                          {/* F&B + Treatments */}
-                          <div className="bg-gray-50 p-4 rounded-lg">
-                            <h3 className="text-lg font-medium text-gray-900 mb-3">F&B + Treatments</h3>
-                            <div className="space-y-4">
+                          {/* Sales & Transactions (all in one card) */}
+                          <div className="flex flex-col h-full">
+                            <div className="bg-gray-50 p-4 rounded-lg flex flex-col h-full">
+                              <h3 className="text-lg font-medium text-gray-900 mb-3 ml-2">Sales & Transactions</h3>
+                              <div className="space-y-4 flex-1">
+                                <div className="bg-white rounded-md shadow-sm overflow-hidden">
+                                  <div className="grid grid-cols-2 gap-px bg-gray-200">
+                                    <div className="bg-white p-2">
+                                      <p className="text-xs text-gray-500 mb-1">Online Memberships</p>
+                                      <div className="flex justify-between items-center">
+                                        <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalOnlineMemberships.amount}</p>
+                                        <p className="text-sm font-semibold text-green-700">£{weeklySummary.totalOnlineMemberships.value}</p>
+                                      </div>
+                                    </div>
+                                    <div className="bg-white p-2">
+                                      <p className="text-xs text-gray-500 mb-1">Offline Memberships</p>
+                                      <div className="flex justify-between items-center">
+                                        <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalOfflineMemberships.amount}</p>
+                                        <p className="text-sm font-semibold text-green-700">£{weeklySummary.totalOfflineMemberships.value}</p>
+                                      </div>
+                                    </div>
+                                    <div className="bg-white p-2">
+                                      <p className="text-xs text-gray-500 mb-1">Online Vouchers</p>
+                                      <div className="flex justify-between items-center">
+                                        <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalOnlineVouchers.amount}</p>
+                                        <p className="text-sm font-semibold text-green-700">£{weeklySummary.totalOnlineVouchers.value}</p>
+                                      </div>
+                                    </div>
+                                    <div className="bg-white p-2">
+                                      <p className="text-xs text-gray-500 mb-1">Paper Vouchers</p>
+                                      <div className="flex justify-between items-center">
+                                        <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalPaperVouchers.amount}</p>
+                                        <p className="text-sm font-semibold text-green-700">£{weeklySummary.totalPaperVouchers.value}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="bg-white rounded-md shadow-sm overflow-hidden">
+                                  <div className="grid grid-cols-2 gap-px bg-gray-200">
+                                    <div className="bg-white p-2">
+                                      <p className="text-xs text-gray-500 mb-1">Yotta Links</p>
+                                      <div className="flex justify-between items-center">
+                                        <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalYottaLinks.amount}</p>
+                                        <p className="text-sm font-semibold text-green-700">£{weeklySummary.totalYottaLinks.value}</p>
+                                      </div>
+                                    </div>
+                                    <div className="bg-white p-2">
+                                      <p className="text-xs text-gray-500 mb-1">Yotta Widget</p>
+                                      <div className="flex justify-between items-center">
+                                        <p className="text-sm font-semibold text-gray-900">{weeklySummary.totalYottaWidget.amount}</p>
+                                        <p className="text-sm font-semibold text-green-700">£{weeklySummary.totalYottaWidget.value}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          {/* F&B + Treatments (tall card, row-span-2) */}
+                          <div className="bg-gray-50 p-4 rounded-lg flex flex-col row-span-2 h-full">
+                            <h3 className="text-lg font-medium text-gray-900 mb-3 ml-2">F&B + Treatments</h3>
+                            <div className="space-y-4 flex-1">
                               <div className="bg-white rounded-md shadow-sm overflow-hidden">
                                 <div className="p-2 border-b border-gray-200">
                                   <p className="text-xs text-gray-500 mb-1">Food & Drink Sales</p>
@@ -1330,74 +1465,76 @@ const VerificationPage: React.FC = () => {
                                 <div className="grid grid-cols-2 gap-px bg-gray-200">
                                   <div className="bg-white p-2">
                                     <p className="text-xs text-gray-500 mb-1">Entry Only</p>
-                                    <div className="flex justify-between items-center">
-                                      <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments.entryOnly.value}</p>
-                                    </div>
+                                    <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments.entryOnly.amount}</p>
                                   </div>
                                   <div className="bg-white p-2">
                                     <p className="text-xs text-gray-500 mb-1">Parenie</p>
-                                    <div className="flex justify-between items-center">
-                                      <p className="text-sm font-semibold text-blue-700  text-right">£{weeklySummary.treatments.parenie.value}</p>
-                                    </div>
+                                    <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments.parenie.amount}</p>
                                   </div>
                                   <div className="bg-white p-2">
                                     <p className="text-xs text-gray-500 mb-1">Aroma Park</p>
-                                    <div className="flex justify-between items-center">
-                                      <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments.aromaPark.value}</p>
-                                    </div>
+                                    <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments.aromaPark.amount}</p>
                                   </div>
                                   <div className="bg-white p-2">
                                     <p className="text-xs text-gray-500 mb-1">Ice Wrap</p>
-                                    <div className="flex justify-between items-center">
-                                      <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments.iceWrap.value}</p>
-                                    </div>
+                                    <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments.iceWrap.amount}</p>
                                   </div>
                                   <div className="bg-white p-2">
                                     <p className="text-xs text-gray-500 mb-1">Scrub</p>
-                                    <div className="flex justify-between items-center">
-                                      <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments.scrub.value}</p>
-                                    </div>
+                                    <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments.scrub.amount}</p>
                                   </div>
                                   <div className="bg-white p-2">
                                     <p className="text-xs text-gray-500 mb-1">Mud Mask</p>
-                                    <div className="flex justify-between items-center">
-                                      <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments.mudMask.value}</p>
-                                    </div>
+                                    <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments.mudMask.amount}</p>
                                   </div>
                                   <div className="bg-white p-2">
                                     <p className="text-xs text-gray-500 mb-1">Mud Wrap</p>
-                                    <div className="flex justify-between items-center">
-                                      <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments.mudWrap.value}</p>
-                                    </div>
+                                    <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments.mudWrap.amount}</p>
                                   </div>
                                   <div className="bg-white p-2">
                                     <p className="text-xs text-gray-500 mb-1">Aloe Vera</p>
-                                    <div className="flex justify-between items-center">
-                                      <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments.aloeVera.value}</p>
-                                    </div>
+                                    <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments.aloeVera.amount}</p>
                                   </div>
                                   <div className="bg-white p-2">
                                     <p className="text-xs text-gray-500 mb-1">Massage 25</p>
-                                    <div className="flex justify-between items-center">
-                                      <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments.massage_25.value}</p>
-                                    </div>
+                                    <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments.massage_25.amount}</p>
                                   </div>
                                   <div className="bg-white p-2">
                                     <p className="text-xs text-gray-500 mb-1">Massage 50</p>
-                                    <div className="flex justify-between items-center">
-                                      <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments.massage_50.value}</p>
-                                    </div>
+                                    <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments.massage_50.amount}</p>
                                   </div>
                                 </div>
                                 <div className="p-2 border-t border-gray-200 bg-gray-50">
-                                  <div className="flex justify-between items-center">
+                                  <div className="flex justify-between items-center mt-2">
                                     <p className="text-sm font-medium text-gray-700">Total Treatments</p>
                                     <div className="flex justify-between items-center space-x-4">
-                                      <p className="text-sm font-semibold text-blue-700">
-                                        £{Object.values(weeklySummary.treatments).reduce((sum, treatment: { amount: number; value: number }) => sum + treatment.value, 0)}
+                                      <p className="text-sm font-semibold text-green-700">
+                                        £{Object.values(weeklySummary.treatments).reduce((sum, treatment: { amount: number }) => sum + treatment.amount, 0) || 0}
                                       </p>
                                     </div>
                                   </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          {/* Weekly costs (col-span-2, below the first two cards) */}
+                          <div className="bg-gray-50 p-4 rounded-lg flex flex-col col-span-2">
+                            <h3 className="text-lg font-medium text-gray-900 mb-2 ml-2">Weekly costs</h3>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="bg-white rounded-md shadow-sm py-3 px-4">
+                                <div className="flex justify-between items-center">
+                                  <span className="text-sm font-medium text-green-700">Total Bonuses</span>
+                                  <span className="text-xl font-semibold text-green-700">
+                                    £{Object.entries(headDataWeekly?.bonuses || {}).reduce((sum, [key, val]) => key !== 'status' ? sum + (typeof val === 'number' ? val : 0) : sum, 0).toFixed(2)}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="bg-white rounded-md shadow-sm py-3 px-4">
+                                <div className="flex justify-between items-center">
+                                  <span className="text-sm font-medium text-blue-700">Total Other Costs</span>
+                                  <span className="text-xl font-semibold text-blue-700">
+                                    £{Object.entries(headDataWeekly?.otherCosts || {}).reduce((sum, [key, val]) => key !== 'status' ? sum + (typeof val === 'number' ? val : 0) : sum, 0).toFixed(2)}
+                                  </span>
                                 </div>
                               </div>
                             </div>
