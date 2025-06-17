@@ -4,6 +4,7 @@ import bodyParser from 'body-parser';
 import cors from 'cors';
 import http from 'http';
 import xlsx from 'xlsx';
+import { startOfWeek } from 'date-fns';
 
 const app = express();
 const PORT = 2345;
@@ -829,12 +830,165 @@ app.get('/api/download-weekly-excel', authenticateToken, async (req, res) => {
   }
 });
 
+app.get('/api/dashboard-data', authenticateToken, async (req, res) => {
+  const { timeFilter, selectedDate, periodStart, periodEnd } = req.query;
+  
+  if (timeFilter === 'day') {
+    const clientData = clients.find(client => client.date === selectedDate) || {};
+    const headDaily = headDailyData[selectedDate];
+    const dayIndex = new Date(selectedDate).getDay();
+    const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
+    const prebooked = headWeeklyData[weekStart]?.preBookedData?.dailyPreBookedPeople?.[getDayName(dayIndex)] || 0;
+    const dailyData = {
+      totalVisitors: clientData.amountOfPeople || 0,
+      totalNewClients: clientData.newClients || 0,
+      totalMale: clientData.male || 0,
+      totalFemale: clientData.female || 0,
+      totalEnglishSpeaking: clientData.englishSpeaking || 0,
+      totalRussianSpeaking: clientData.russianSpeaking || 0,
+      totalOffPeak: clientData.offPeakClients || 0,
+      totalPeakTime: clientData.peakTimeClients || 0,
+      totalOnlineMemberships: {
+        amount: clientData.onlineMembershipsAmount || 0,
+        value: clientData.onlineMembershipsTotal || 0
+      },
+      totalOfflineMemberships: {
+        amount: clientData.offlineMembershipsAmount || 0,
+        value: clientData.offlineMembershipsTotal || 0
+      },
+      totalOnlineVouchers: {
+        amount: clientData.onlineVouchersAmount || 0,
+        value: clientData.onlineVouchersTotal || 0
+      },
+      totalPaperVouchers: {
+        amount: clientData.paperVouchersAmount || 0,
+        value: clientData.paperVouchersTotal || 0
+      },
+      totalYottaLinks: {
+        amount: clientData.yottaLinksAmount || 0,
+        value: clientData.yottaLinksTotal || 0
+      },
+      totalYottaWidget: {
+        amount: clientData.yottaWidgetAmount || 0,
+        value: clientData.yottaWidgetTotal || 0
+      },
+      totalFoodAndDrinkSales: headDaily.foodAndDrinkSales || 0,
+      totalTreatments: headDaily.treatments || 0,
+      prebooked: prebooked
+    }
+    return res.json({ dailyData });
+  } else if (timeFilter === 'week') {
+    const weeklyDashboardData = {};
+    for (let i = 0; i < 7; i++) {
+      const currentDate = new Date(selectedDate);
+      currentDate.setDate(currentDate.getDate() + i);
+      currentDate.setUTCHours(0, 0, 0, 0);
+      const formattedDate = formatDate(currentDate);
+      const clientsDaily = clients.find(client => client.date === formattedDate) || {};
+      const headDaily = headDailyData[formattedDate] || {};
+      weeklyDashboardData[formattedDate] = {
+        totalVisitors: clientsDaily.amountOfPeople || 0,
+        totalNewClients: clientsDaily.newClients || 0,
+        totalMale: clientsDaily.male || 0,
+        totalFemale: clientsDaily.female || 0,
+        totalEnglishSpeaking: clientsDaily.englishSpeaking || 0,
+        totalRussianSpeaking: clientsDaily.russianSpeaking || 0,
+        totalOffPeak: clientsDaily.offPeakClients || 0,
+        totalPeakTime: clientsDaily.peakTimeClients || 0,
+        totalOnlineMemberships: {
+          amount: clientsDaily.onlineMembershipsAmount || 0,
+          value: clientsDaily.onlineMembershipsTotal || 0
+        },
+        totalOfflineMemberships: {
+          amount: clientsDaily.offlineMembershipsAmount || 0,
+          value: clientsDaily.offlineMembershipsTotal || 0
+        },
+        totalOnlineVouchers: {
+          amount: clientsDaily.onlineVouchersAmount || 0,
+          value: clientsDaily.onlineVouchersTotal || 0
+        },
+        totalPaperVouchers: {
+          amount: clientsDaily.paperVouchersAmount || 0,
+          value: clientsDaily.paperVouchersTotal || 0
+        },
+        totalYottaLinks: {
+          amount: clientsDaily.yottaLinksAmount || 0,
+          value: clientsDaily.yottaLinksTotal || 0
+        },
+        totalYottaWidget: {
+          amount: clientsDaily.yottaWidgetAmount || 0,
+          value: clientsDaily.yottaWidgetTotal || 0
+        },
+        totalFoodAndDrinkSales: headDaily.foodAndDrinkSales || 0,
+        totalTreatments: headDaily.treatments || 0,
+        prebooked: headWeeklyData[selectedDate]?.preBookedData?.dailyPreBookedPeople?.[getDayName(i)] || 0
+      };
+    }
+    return res.json({ weeklyDashboardData });
+  } else if (timeFilter === 'period') {
+    const periodDashboardData = {};
+    const startDate = new Date(periodStart);
+    const endDate = new Date(periodEnd);
+    
+    for (let date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
+      const formattedDate = formatDate(date);
+      const clientsDaily = clients.find(client => client.date === formattedDate) || {};
+      const headDaily = headDailyData[formattedDate] || {};
+      
+      periodDashboardData[formattedDate] = {
+        totalVisitors: clientsDaily.amountOfPeople || 0,
+        totalNewClients: clientsDaily.newClients || 0,
+        totalMale: clientsDaily.male || 0,
+        totalFemale: clientsDaily.female || 0,
+        totalEnglishSpeaking: clientsDaily.englishSpeaking || 0,
+        totalRussianSpeaking: clientsDaily.russianSpeaking || 0,
+        totalOffPeak: clientsDaily.offPeakClients || 0,
+        totalPeakTime: clientsDaily.peakTimeClients || 0,
+        totalOnlineMemberships: {
+          amount: clientsDaily.onlineMembershipsAmount || 0,
+          value: clientsDaily.onlineMembershipsTotal || 0
+        },
+        totalOfflineMemberships: {
+          amount: clientsDaily.offlineMembershipsAmount || 0,
+          value: clientsDaily.offlineMembershipsTotal || 0
+        },
+        totalOnlineVouchers: {
+          amount: clientsDaily.onlineVouchersAmount || 0,
+          value: clientsDaily.onlineVouchersTotal || 0
+        },
+        totalPaperVouchers: {
+          amount: clientsDaily.paperVouchersAmount || 0,
+          value: clientsDaily.paperVouchersTotal || 0
+        },
+        totalYottaLinks: {
+          amount: clientsDaily.yottaLinksAmount || 0,
+          value: clientsDaily.yottaLinksTotal || 0
+        },
+        totalYottaWidget: {
+          amount: clientsDaily.yottaWidgetAmount || 0,
+          value: clientsDaily.yottaWidgetTotal || 0
+        },
+        totalFoodAndDrinkSales: headDaily.foodAndDrinkSales || 0,
+        totalTreatments: headDaily.treatments || 0,
+        prebooked: headWeeklyData[formattedDate]?.preBookedData?.dailyPreBookedPeople?.[getDayName(date.getDay())] || 0
+      };
+    }
+    return res.json({ weeklyDashboardData: periodDashboardData });
+  }
+}); 
+
 // Helper function to format date as dd.mm.yyyy
 const formatDate = (date) => {
   const day = date.getDate().toString().padStart(2, '0');
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
   const year = date.getFullYear();
   return `${year}-${month}-${day}`;
+};
+
+// Helper function to get day name
+const getDayName = (dayIndex) => {
+  const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+  return days[dayIndex];
 };
 
 const server = http.createServer(app);

@@ -22,7 +22,7 @@ const LoginPage: React.FC = () => {
     try {
       const { success, role } = await login(username, password);
       if (success) {
-        const redirectPath = role === 'head' ? '/verification' : '/dashboard';
+        const redirectPath = role === 'head' ? '/verification' : '/daily-data';
         navigate(redirectPath);
       } else {
         setError('Invalid username or password');
@@ -35,7 +35,7 @@ const LoginPage: React.FC = () => {
   };
 
   if (isAuthenticated) {
-    const redirectPath = user?.role === 'head' ? '/verification' : '/dashboard';
+    const redirectPath = user?.role === 'head' ? '/verification' : '/daily-data';
     return <Navigate to={redirectPath} />;
   }
 

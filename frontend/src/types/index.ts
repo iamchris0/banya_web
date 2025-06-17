@@ -123,15 +123,45 @@ export interface WeeklySummary {
   totalYottaWidget: { amount: number; value: number };
   totalFoodAndDrink: number;
   treatments: {
-    entryOnly: { amount: number; value: number };
-    parenie: { amount: number; value: number };
-    aromaPark: { amount: number; value: number };
-    iceWrap: { amount: number; value: number };
-    scrub: { amount: number; value: number };
-    mudMask: { amount: number; value: number };
-    mudWrap: { amount: number; value: number };
-    aloeVera: { amount: number; value: number };
-    massage_25: { amount: number; value: number };
-    massage_50: { amount: number; value: number };
+    entryOnly: { amount: number };
+    parenie: { amount: number };
+    aromaPark: { amount: number };
+    iceWrap: { amount: number };
+    scrub: { amount: number };
+    mudMask: { amount: number };
+    mudWrap: { amount: number };
+    aloeVera: { amount: number };
+    massage_25: { amount: number };
+    massage_50: { amount: number };
   };
+  prebooked?: number;
+}
+
+export interface WeeklyDashboardData {
+  [date: string]: WeeklySummary;
+}
+
+export interface DailyData {
+  totalVisitors: number;
+  totalNewClients: number;
+  totalMale: number;
+  totalFemale: number;
+  totalEnglishSpeaking: number;
+  totalRussianSpeaking: number;
+  totalOffPeak: number;
+  totalPeakTime: number;
+  totalOnlineMemberships: { amount: number; value: number };
+  totalOfflineMemberships: { amount: number; value: number };
+  totalOnlineVouchers: { amount: number; value: number };
+  totalPaperVouchers: { amount: number; value: number };
+  totalYottaLinks: { amount: number; value: number };
+  totalYottaWidget: { amount: number; value: number };
+  totalFoodAndDrinkSales: number;
+  totalTreatments: number;
+  prebooked: number;
+}
+
+export interface ApiResponse {
+  weeklyDashboardData?: WeeklyDashboardData;
+  dailyData?: DailyData;
 }
