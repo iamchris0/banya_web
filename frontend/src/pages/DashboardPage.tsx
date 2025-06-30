@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { WeeklyDashboardData, DailyData } from '../types';
-import { format, startOfWeek, endOfWeek, subWeeks, addWeeks } from 'date-fns';
+import { format, startOfWeek, endOfWeek, subWeeks, addWeeks, subDays, addDays } from 'date-fns';
 import { IoIosArrowBack, IoIosArrowForward } from 'react-icons/io';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -21,10 +21,12 @@ const DashboardPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [periodStart, setPeriodStart] = useState<Date>(subWeeks(new Date(), 4));
   const [periodEnd, setPeriodEnd] = useState<Date>(new Date());
+  const [noData, setNoData] = useState(false);
 
 
   useEffect(() => {
     const fetchData = async () => {
+      setNoData(false);
       if (!user) {
         setError('No authentication token available');
         setLoading(false);
@@ -48,7 +50,22 @@ const DashboardPage: React.FC = () => {
                 'Content-Type': 'application/json',
               },
             });
+            if (!dayResponse.ok) {
+              setNoData(true);
+              setDailyData(null);
+              setWeeklyData(null);
+              setLoading(false);
+              return;
+            }
             const dayData = await dayResponse.json();
+            // console.log(dayData);
+            if (!dayData || !dayData.dailyData) {
+              setNoData(true);
+              setDailyData(null);
+              setWeeklyData(null);
+              setLoading(false);
+              return;
+            }
             setDailyData(dayData.dailyData);
             setWeeklyData(null);
             break;  
@@ -64,7 +81,21 @@ const DashboardPage: React.FC = () => {
                 'Content-Type': 'application/json',
               },
             });
+            if (!weekResponse.ok) {
+              setNoData(true);
+              setDailyData(null);
+              setWeeklyData(null);
+              setLoading(false);
+              return;
+            }
             const weekData = await weekResponse.json();
+            if (!weekData || !weekData.weeklyDashboardData) {
+              setNoData(true);
+              setDailyData(null);
+              setWeeklyData(null);
+              setLoading(false);
+              return;
+            }
             setWeeklyData(weekData.weeklyDashboardData);
             setDailyData(null);
             break;
@@ -83,7 +114,21 @@ const DashboardPage: React.FC = () => {
                 'Content-Type': 'application/json',
               },
             });
+            if (!periodResponse.ok) {
+              setNoData(true);
+              setDailyData(null);
+              setWeeklyData(null);
+              setLoading(false);
+              return;
+            }
             const periodData = await periodResponse.json();
+            if (!periodData || !periodData.weeklyDashboardData) {
+              setNoData(true);
+              setDailyData(null);
+              setWeeklyData(null);
+              setLoading(false);
+              return;
+            }
             setWeeklyData(periodData.weeklyDashboardData);
             setDailyData(null);
             break;
@@ -105,7 +150,7 @@ const DashboardPage: React.FC = () => {
   const handlePreviousPeriod = () => {
     switch (timeFilter) {
       case 'day':
-        setSelectedDate(prev => subWeeks(prev, 1));
+        setSelectedDate(prev => subDays(prev, 1));  
         break;
       case 'week':
         setSelectedDate(prev => subWeeks(prev, 1));
@@ -121,7 +166,7 @@ const DashboardPage: React.FC = () => {
   const handleNextPeriod = () => {
     switch (timeFilter) {
       case 'day':
-        setSelectedDate(prev => addWeeks(prev, 1));
+        setSelectedDate(prev => addDays(prev, 1));
         break;
       case 'week':
         setSelectedDate(prev => addWeeks(prev, 1));
@@ -204,41 +249,40 @@ const DashboardPage: React.FC = () => {
     );
   }
 
-  if (error) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-red-500">{error}</div>
-      </div>
-    );
-  }
-
-  if (!weeklyData && !dailyData) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-gray-500">No data available</div>
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col h-full bg-gray-50 text-gray-800 p-4">
       <ToastContainer position="top-right" autoClose={5000} />
       <DateSelector />
       <div className="flex-grow w-full max-w-8xl mx-auto space-y-8">
-        {timeFilter === 'day' && dailyData && (
-          <DailyDashboard 
-            data={dailyData} 
-          />
-        )}
-        {timeFilter === 'week' && weeklyData && (
-          <WeeklyDashboard 
-            data={weeklyData} 
-          />
-        )}
-        {timeFilter === 'period' && weeklyData && (
-          <PeriodDashboard 
-            data={weeklyData} 
-          />
+        {error ? (
+          <div className="flex flex-col items-center justify-center h-full">
+            <div className="text-red-500 text-xl font-semibold mb-2">{error}</div>
+            <div className="text-gray-500 mb-4 text-center">An error occurred while fetching dashboard data.<br/>Try choosing a different date or period.</div>
+          </div>
+        ) : noData ? (
+          <div className="flex flex-col items-center justify-center h-full">
+            <img src="https://cdn-icons-png.flaticon.com/512/4076/4076549.png" alt="No data" className="w-32 h-32 mb-4 opacity-70" />
+            <div className="text-xl font-semibold text-gray-700 mb-2">No data available</div>
+            <div className="text-gray-500 mb-4 text-center">There is no dashboard data for the selected {timeFilter}.<br/>Try choosing a different date or period.</div>
+          </div>
+        ) : (
+          <>
+            {timeFilter === 'day' && dailyData && (
+              <DailyDashboard 
+                data={dailyData} 
+              />
+            )}
+            {timeFilter === 'week' && weeklyData && (
+              <WeeklyDashboard 
+                data={weeklyData} 
+              />
+            )}
+            {timeFilter === 'period' && weeklyData && (
+              <PeriodDashboard 
+                data={weeklyData} 
+              />
+            )}
+          </>
         )}
       </div>
     </div>

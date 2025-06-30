@@ -26,6 +26,7 @@ export interface DailyPreBooked {
 export interface PreBookedData {
   dailyPreBookedPeople?: DailyPreBooked;
   dailyPreBookedValue?: DailyPreBooked;
+  modifiedBy?: string;
   status?: StatusType;
 }
 
@@ -41,6 +42,7 @@ export interface Bonuses {
   vouchersSalesBonus?: number;
   membershipSalesBonus?: number;
   privateBookingsBonus?: number;
+  modifiedBy?: string;
   status?: StatusType;
 }
 
@@ -48,6 +50,7 @@ export interface OtherCosts {
   kitchenSalaryPaid?: number;
   foodAndBeverageStock?: number;
   kitchenPL?: number;
+  modifiedBy?: string;
   status?: StatusType;
 }
 
@@ -96,6 +99,7 @@ export interface HeadDaily {
     massage_50: { done: boolean; amount: number };
   };
   date?: string;
+  modifiedBy?: string;
   status: StatusType;
 }
 
@@ -123,16 +127,16 @@ export interface WeeklySummary {
   totalYottaWidget: { amount: number; value: number };
   totalFoodAndDrink: number;
   treatments: {
-    entryOnly: { amount: number };
-    parenie: { amount: number };
-    aromaPark: { amount: number };
-    iceWrap: { amount: number };
-    scrub: { amount: number };
-    mudMask: { amount: number };
-    mudWrap: { amount: number };
-    aloeVera: { amount: number };
-    massage_25: { amount: number };
-    massage_50: { amount: number };
+    entryOnly: { amount: number; done: boolean };
+    parenie: { amount: number; done: boolean };
+    aromaPark: { amount: number; done: boolean };
+    iceWrap: { amount: number; done: boolean };
+    scrub: { amount: number; done: boolean };
+    mudMask: { amount: number; done: boolean };
+    mudWrap: { amount: number; done: boolean };
+    aloeVera: { amount: number; done: boolean };
+    massage_25: { amount: number; done: boolean };
+    massage_50: { amount: number; done: boolean };
   };
   prebooked?: number;
 }

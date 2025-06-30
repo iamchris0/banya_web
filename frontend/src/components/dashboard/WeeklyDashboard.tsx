@@ -17,6 +17,7 @@ import { Chart } from 'react-chartjs-2';
 import { WeeklyDashboardData } from '../../types';
 import { toast } from 'react-toastify';
 import { format, parseISO } from 'date-fns';
+import ChartDataLabels from 'chartjs-plugin-datalabels';
 
 // Register ChartJS components
 ChartJS.register(
@@ -27,7 +28,8 @@ ChartJS.register(
   BarElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  ChartDataLabels
 );
 
 interface WeeklyDashboardProps {
@@ -37,7 +39,7 @@ interface WeeklyDashboardProps {
 const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ data }) => {
   const [error, setError] = useState<string | null>(null);
 
-  const getVisitorsData = () => {
+  const getVisitorsMixedData = () => {
     const dates = Object.keys(data).sort();
     return {
       labels: dates.map(date => format(parseISO(date), 'EEE')),
@@ -50,6 +52,10 @@ const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ data }) => {
           borderColor: 'rgba(75, 192, 192, 1)',
           borderWidth: 1,
           yAxisID: 'y',
+          datalabels: {
+            anchor: 'end',
+            align: 'top',
+          },
         },
         {
           type: 'bar' as const,
@@ -59,6 +65,10 @@ const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ data }) => {
           borderColor: 'rgba(54, 162, 235, 1)',
           borderWidth: 1,
           yAxisID: 'y',
+          datalabels: {
+            anchor: 'end',
+            align: 'top',
+          },
         },
         {
           type: 'line' as const,
@@ -69,6 +79,12 @@ const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ data }) => {
           tension: 0.4,
           fill: false,
           yAxisID: 'y',
+          pointBackgroundColor: 'rgba(255, 99, 132, 1)',
+          pointBorderColor: 'rgba(255, 99, 132, 1)',
+          datalabels: {
+            anchor: 'end',
+            align: 'bottom',
+          },
         },
       ],
     };
@@ -83,8 +99,8 @@ const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ data }) => {
           type: 'line' as const,
           label: 'Peak Time',
           data: dates.map(date => data[date]?.totalPeakTime ?? 0),
-          borderColor: 'rgba(153, 102, 255, 1)',
-          backgroundColor: 'rgba(153, 102, 255, 0.2)',
+          borderColor: 'rgba(255, 99, 132, 1)',
+          backgroundColor: 'rgba(255, 99, 132, 0.2)',
           tension: 0.4,
           yAxisID: 'y',
         },
@@ -92,11 +108,11 @@ const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ data }) => {
           type: 'line' as const,
           label: 'Off Peak',
           data: dates.map(date => data[date]?.totalOffPeak ?? 0),
-          borderColor: 'rgba(255, 206, 86, 1)',
-          backgroundColor: 'rgba(255, 206, 86, 0.2)',
+          borderColor: 'rgb(77, 192, 75)', 
+          backgroundColor: 'rgba(75, 192, 192, 0.2)',
           tension: 0.4,
           yAxisID: 'y',
-        },
+        }
       ],
     };
   };
@@ -209,12 +225,12 @@ const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ data }) => {
     };
   };
 
-  const chartOptions = {
+  const chartOptionsBar: ChartOptions<'bar'> = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
       legend: {
-        position: 'bottom' as const,
+        position: 'bottom',
         labels: {
           usePointStyle: true,
           pointStyle: 'circle',
@@ -228,10 +244,10 @@ const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ data }) => {
       },
       title: {
         display: true,
-        align: 'start' as const,
+        align: 'start',
         font: {
           size: 16,
-          weight: 'bold' as const,
+          weight: 'bold',
         },
         padding: {
           top: 10,
@@ -250,14 +266,15 @@ const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ data }) => {
       datalabels: {
         color: '#333',
         font: {
-          weight: 'bold' as const,
-          size: 11,
+          weight: 'bold',
+          size: 13,
         },
-        align: 'center' as const,
-        anchor: 'center' as const,
-        offset: 0,
+        anchor: 'end',
+        align: 'top',
+        offset: 4,
         formatter: (value: number) => value,
-      }
+        display: true,
+      },
     },
     scales: {
       y: {
@@ -274,6 +291,141 @@ const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ data }) => {
         }
       }
     }
+  };
+
+  const chartOptionsLine: ChartOptions<'line'> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'bottom',
+        labels: {
+          usePointStyle: true,
+          pointStyle: 'circle',
+          padding: 20,
+          font: {
+            size: 12,
+          },
+          boxWidth: 16,
+          boxHeight: 16,
+        },
+      },
+      title: {
+        display: true,
+        align: 'start',
+        font: {
+          size: 16,
+          weight: 'bold',
+        },
+        padding: {
+          top: 10,
+          bottom: 30,
+        },
+      },
+      tooltip: {
+        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+        titleColor: '#1f2937',
+        bodyColor: '#4b5563',
+        borderColor: '#e5e7eb',
+        borderWidth: 1,
+        padding: 12,
+        boxPadding: 6
+      },
+      datalabels: {
+        color: '#333',
+        font: {
+          weight: 'bold',
+          size: 13,
+        },
+        anchor: 'end',
+        align: 'top',
+        offset: 4,
+        formatter: (value: number) => value,
+        display: true,
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        title: {
+          display: true,
+          text: 'Number of Visitors'
+        }
+      },
+      x: {
+        title: {
+          display: true,
+          text: 'Day'
+        }
+      }
+    }
+  };
+
+  // Chart options with captions
+  const chartOptionsVisitors: ChartOptions<'bar'> = {
+    ...chartOptionsBar,
+    plugins: {
+      ...chartOptionsBar.plugins,
+      title: {
+        ...chartOptionsBar.plugins?.title,
+        text: 'Clients dynamics',
+      },
+    },
+  };
+
+  const chartOptionsTiming: ChartOptions<'line'> = {
+    ...chartOptionsLine,
+    plugins: {
+      ...chartOptionsLine.plugins,
+      title: {
+        ...chartOptionsLine.plugins?.title,
+        text: 'Timing dynamics',
+      },
+    },
+  };
+
+  const chartOptionsGender: ChartOptions<'line'> = {
+    ...chartOptionsLine,
+    plugins: {
+      ...chartOptionsLine.plugins,
+      title: {
+        ...chartOptionsLine.plugins?.title,
+        text: 'Gender dynamics',
+      },
+    },
+  };
+
+  const chartOptionsLanguage: ChartOptions<'line'> = {
+    ...chartOptionsLine,
+    plugins: {
+      ...chartOptionsLine.plugins,
+      title: {
+        ...chartOptionsLine.plugins?.title,
+        text: 'Language dynamics',
+      },
+    },
+  };
+
+  const chartOptionsMemberships: ChartOptions<'bar'> = {
+    ...chartOptionsBar,
+    plugins: {
+      ...chartOptionsBar.plugins,
+      title: {
+        ...chartOptionsBar.plugins?.title,
+        text: 'Memberships dynamics',
+      },
+    },
+  };
+
+  const chartOptionsTransactions: ChartOptions<'bar'> = {
+    ...chartOptionsBar,
+    plugins: {
+      ...chartOptionsBar.plugins,
+      title: {
+        ...chartOptionsBar.plugins?.title,
+        text: 'Transactions dynamics',
+      },
+    },
   };
 
   useEffect(() => {
@@ -293,17 +445,8 @@ const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ data }) => {
                 <div className="h-[400px]">
                   <Chart 
                     type="bar"
-                    data={getVisitorsData()}
-                    options={{
-                      ...chartOptions,
-                      plugins: {
-                        ...chartOptions.plugins,
-                        title: {
-                          ...chartOptions.plugins.title,
-                          text: 'Visitor Overview',
-                        },
-                      },
-                    }}
+                    data={getVisitorsMixedData() as any}
+                    options={chartOptionsVisitors}
                   />
                 </div>
               </div>
@@ -314,16 +457,7 @@ const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ data }) => {
                   <Chart 
                     type="line"
                     data={getTimingData()}
-                    options={{
-                      ...chartOptions,
-                      plugins: {
-                        ...chartOptions.plugins,
-                        title: {
-                          ...chartOptions.plugins.title,
-                          text: 'Timing Distribution',
-                        },
-                      },
-                    }}
+                    options={chartOptionsTiming}
                   />
                 </div>
               </div>
@@ -340,16 +474,7 @@ const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ data }) => {
                   <Chart 
                     type="line"
                     data={getGenderData()}
-                    options={{
-                      ...chartOptions,
-                      plugins: {
-                        ...chartOptions.plugins,
-                        title: {
-                          ...chartOptions.plugins.title,
-                          text: 'Gender Distribution',
-                        },
-                      },
-                    }}
+                    options={chartOptionsGender}
                   />
                 </div>
               </div>
@@ -360,16 +485,7 @@ const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ data }) => {
                   <Chart 
                     type="line"
                     data={getLanguageData()}
-                    options={{
-                      ...chartOptions,
-                      plugins: {
-                        ...chartOptions.plugins,
-                        title: {
-                          ...chartOptions.plugins.title,
-                          text: 'Language Distribution',
-                        },
-                      },
-                    }}
+                    options={chartOptionsLanguage}
                   />
                 </div>
               </div>
@@ -386,16 +502,7 @@ const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ data }) => {
                   <Chart 
                     type="bar"
                     data={getMembershipsData()}
-                    options={{
-                      ...chartOptions,
-                      plugins: {
-                        ...chartOptions.plugins,
-                        title: {
-                          ...chartOptions.plugins.title,
-                          text: 'Memberships & Vouchers',
-                        },
-                      },
-                    }}
+                    options={chartOptionsMemberships}
                   />
                 </div>
               </div>
@@ -406,16 +513,7 @@ const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ data }) => {
                   <Chart 
                     type="bar"
                     data={getTransactionsData()}
-                    options={{
-                      ...chartOptions,
-                      plugins: {
-                        ...chartOptions.plugins,
-                        title: {
-                          ...chartOptions.plugins.title,
-                          text: 'Transactions + F&B',
-                        },
-                      },
-                    }}
+                    options={chartOptionsTransactions}
                   />
                 </div>
               </div>

@@ -9,17 +9,17 @@ import SurveyModal from './AddInformationPage';
 type DayOfWeek = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
 
 const DEFAULT_TREATMENTS = {
-  entryOnly: { done: false, amount: 0 },
-  parenie: { done: false, amount: 0 },
-  aromaPark: { done: false, amount: 0 },
-  iceWrap: { done: false, amount: 0 },
-  scrub: { done: false, amount: 0 },
-  mudMask: { done: false, amount: 0 },
-  mudWrap: { done: false, amount: 0 },
-  aloeVera: { done: false, amount: 0 },
-  massage_25: { done: false, amount: 0 },
-  massage_50: { done: false, amount: 0 }
-} as const;
+  entryOnly: { amount: 0, done: false },
+  parenie: { amount: 0, done: false },
+  aromaPark: { amount: 0, done: false },
+  iceWrap: { amount: 0, done: false },
+  scrub: { amount: 0, done: false },
+  mudMask: { amount: 0, done: false },
+  mudWrap: { amount: 0, done: false },
+  aloeVera: { amount: 0, done: false },
+  massage_25: { amount: 0, done: false },
+  massage_50: { amount: 0, done: false }
+};
 
 const VerificationPage: React.FC = () => {
   const { token, user } = useAuth();
@@ -129,8 +129,10 @@ const VerificationPage: React.FC = () => {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || 'Failed to fetch data');
       }
-
-      setHeadDataDaily(data.headData);
+      setHeadDataDaily({
+        ...data.headData,
+        treatments: data.headData?.treatments || DEFAULT_TREATMENTS
+      });
       setReceiptData(data.receiptData);
 
     } catch (err) {
@@ -292,7 +294,6 @@ const VerificationPage: React.FC = () => {
           const monthStart = dateUtils.getMonthStart(newDailyDate);
           setCurrentWeekStart(weekStart);
           setCurrentMonthStart(monthStart);
-          // fetchDailyData(newDailyDate);
           setIsTransitioning(false);
           setDirection(null);
         }, 200);
@@ -306,7 +307,6 @@ const VerificationPage: React.FC = () => {
           
           const monthStart = dateUtils.getMonthStart(newWeekDate);
           setCurrentMonthStart(monthStart);
-          // fetchWeeklyData(newWeekDate);
           setIsTransitioning(false);
           setDirection(null);
         }, 200);
@@ -320,7 +320,6 @@ const VerificationPage: React.FC = () => {
           // Update week if needed
           const weekStart = dateUtils.getWeekStart(newMonthDate);
           setCurrentWeekStart(weekStart);
-          // fetchMonthlyData(newMonthDate);
           setIsTransitioning(false);
           setDirection(null);
         }, 200);
@@ -345,7 +344,6 @@ const VerificationPage: React.FC = () => {
           const monthStart = dateUtils.getMonthStart(newDailyDate);
           setCurrentWeekStart(weekStart);
           setCurrentMonthStart(monthStart);
-          // fetchDailyData(newDailyDate);
           setIsTransitioning(false);
           setDirection(null);
         }, 200);
@@ -359,7 +357,6 @@ const VerificationPage: React.FC = () => {
           
           const monthStart = dateUtils.getMonthStart(newWeekDate);
           setCurrentMonthStart(monthStart);
-          // fetchWeeklyData(newWeekDate);
           setIsTransitioning(false);
           setDirection(null);
         }, 200);
@@ -373,7 +370,6 @@ const VerificationPage: React.FC = () => {
           // Update week if needed
           const weekStart = dateUtils.getWeekStart(newMonthDate);
           setCurrentWeekStart(weekStart);
-          // fetchMonthlyData(newMonthDate);
           setIsTransitioning(false);
           setDirection(null);
         }, 200);
@@ -382,7 +378,6 @@ const VerificationPage: React.FC = () => {
   };
 
   const handleSubmitSuccess = () => {
-    // fetchDailyData(selectedDate);
     setIsModalOpen(false);
   };
 
@@ -481,14 +476,14 @@ const VerificationPage: React.FC = () => {
     setHeadDataDaily(prev => {
       if (!prev) return prev;
       const treatments = prev.treatments || DEFAULT_TREATMENTS;
-      
       return {
         ...prev,
         treatments: {
           ...treatments,
           [treatment]: {
             ...(treatments[treatment] as { done: boolean; amount: number }),
-            amount: value
+            amount: value,
+            done: true // Mark as done when value is changed
           }
         },
         status: 'Edited'
@@ -637,7 +632,7 @@ const VerificationPage: React.FC = () => {
         throw new Error(errorData.message || `Failed to fetch weekly summary: ${summaryResponse.status}`);
       }
       const summaryData = await summaryResponse.json();
-
+      
       setWeeklySummary({...summaryData.summary, ...headData.headData});
     } catch (err) {
       showErrorMessage(err instanceof Error ? err.message : 'Error fetching weekly data');
@@ -813,12 +808,6 @@ const VerificationPage: React.FC = () => {
     }
   };
 
-  // useEffect(() => {
-  //   console.log('headDataWeekly', headDataWeekly);
-  //   console.log('headDataDaily', headDataDaily);
-  //   console.log('weeklySummary', weeklySummary);
-  // }, [headDataWeekly, headDataDaily, weeklySummary]);
-
   return (
     <div className="flex flex-col min-h-screen bg-gray-50 text-gray-800 p-6 overflow-auto">
       {/* Success Notification */}
@@ -945,6 +934,11 @@ const VerificationPage: React.FC = () => {
                                 {isHeadDataCollapsed ? <FaChevronDown size={16} /> : <FaChevronUp size={16} />}
                               </button>
                               <h2 className="text-xl font-semibold text-gray-900">F&B Sales + Treatments</h2>
+                              {headDataDaily?.modifiedBy && (
+                                <span className="ml-2 px-3 py-1 rounded-full bg-gray-200 text-gray-700 text-xs font-medium">
+                                  Modified by: <span className="font-bold">{headDataDaily.modifiedBy}</span>
+                                </span>
+                              )}
                             </div>
                             <div className="flex items-center space-x-3">
                               <span
@@ -1465,43 +1459,43 @@ const VerificationPage: React.FC = () => {
                                 <div className="grid grid-cols-2 gap-px bg-gray-200">
                                   <div className="bg-white p-2">
                                     <p className="text-xs text-gray-500 mb-1">Entry Only</p>
-                                    <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments.entryOnly.amount}</p>
+                                    <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments?.entryOnly.amount}</p>
                                   </div>
                                   <div className="bg-white p-2">
                                     <p className="text-xs text-gray-500 mb-1">Parenie</p>
-                                    <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments.parenie.amount}</p>
+                                    <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments?.parenie.amount}</p>
                                   </div>
                                   <div className="bg-white p-2">
                                     <p className="text-xs text-gray-500 mb-1">Aroma Park</p>
-                                    <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments.aromaPark.amount}</p>
+                                    <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments?.aromaPark.amount}</p>
                                   </div>
                                   <div className="bg-white p-2">
                                     <p className="text-xs text-gray-500 mb-1">Ice Wrap</p>
-                                    <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments.iceWrap.amount}</p>
+                                    <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments?.iceWrap.amount}</p>
                                   </div>
                                   <div className="bg-white p-2">
                                     <p className="text-xs text-gray-500 mb-1">Scrub</p>
-                                    <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments.scrub.amount}</p>
+                                    <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments?.scrub.amount}</p>
                                   </div>
                                   <div className="bg-white p-2">
                                     <p className="text-xs text-gray-500 mb-1">Mud Mask</p>
-                                    <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments.mudMask.amount}</p>
+                                    <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments?.mudMask.amount}</p>
                                   </div>
                                   <div className="bg-white p-2">
                                     <p className="text-xs text-gray-500 mb-1">Mud Wrap</p>
-                                    <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments.mudWrap.amount}</p>
+                                    <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments?.mudWrap.amount}</p>
                                   </div>
                                   <div className="bg-white p-2">
                                     <p className="text-xs text-gray-500 mb-1">Aloe Vera</p>
-                                    <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments.aloeVera.amount}</p>
+                                    <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments?.aloeVera.amount}</p>
                                   </div>
                                   <div className="bg-white p-2">
                                     <p className="text-xs text-gray-500 mb-1">Massage 25</p>
-                                    <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments.massage_25.amount}</p>
+                                    <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments?.massage_25.amount}</p>
                                   </div>
                                   <div className="bg-white p-2">
                                     <p className="text-xs text-gray-500 mb-1">Massage 50</p>
-                                    <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments.massage_50.amount}</p>
+                                    <p className="text-sm font-semibold text-blue-700 text-right">£{weeklySummary.treatments?.massage_50.amount}</p>
                                   </div>
                                 </div>
                                 <div className="p-2 border-t border-gray-200 bg-gray-50">
@@ -1556,6 +1550,11 @@ const VerificationPage: React.FC = () => {
                             {isPrebookedCollapsed ? <FaChevronDown size={16} /> : <FaChevronUp size={16} />}
                           </button>
                           <h2 className="text-xl font-semibold text-gray-900">Prebooked Data</h2>
+                          {headDataWeekly?.preBookedData?.modifiedBy && (
+                            <span className="ml-2 px-3 py-1 rounded-full bg-gray-200 text-gray-700 text-xs font-medium">
+                              Modified by: <span className="font-bold">{headDataWeekly.preBookedData.modifiedBy}</span>
+                            </span>
+                          )}
                         </div>
                         <div className="flex items-center space-x-3">
                           <span
@@ -1654,6 +1653,11 @@ const VerificationPage: React.FC = () => {
                             {isBonusesCollapsed ? <FaChevronDown size={16} /> : <FaChevronUp size={16} />}
                           </button>
                           <h2 className="text-xl font-semibold text-gray-900">Bonuses</h2>
+                          {headDataWeekly?.bonuses?.modifiedBy && (
+                            <span className="ml-2 px-3 py-1 rounded-full bg-gray-200 text-gray-700 text-xs font-medium">
+                              Modified by: <span className="font-bold">{headDataWeekly.bonuses.modifiedBy}</span>
+                            </span>
+                          )}
                         </div>
                         <div className="flex items-center space-x-3">
                           <span
@@ -1731,6 +1735,11 @@ const VerificationPage: React.FC = () => {
                             {isOtherCostsCollapsed ? <FaChevronDown size={16} /> : <FaChevronUp size={16} />}
                           </button>
                           <h2 className="text-xl font-semibold text-gray-900">Other Costs</h2>
+                          {headDataWeekly?.otherCosts?.modifiedBy && (
+                            <span className="ml-2 px-3 py-1 rounded-full bg-gray-200 text-gray-700 text-xs font-medium">
+                              Modified by: <span className="font-bold">{headDataWeekly.otherCosts.modifiedBy}</span>
+                            </span>
+                          )}
                         </div>
                         <div className="flex items-center space-x-3">
                           <span

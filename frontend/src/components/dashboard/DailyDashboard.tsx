@@ -17,6 +17,8 @@ import {
 import { Chart } from 'react-chartjs-2';
 import { DailyData } from '../../types';
 import { toast } from 'react-toastify';
+import ChartDataLabels from 'chartjs-plugin-datalabels';
+import { FaArrowUp, FaArrowDown, FaEquals } from 'react-icons/fa';
 
 // Register ChartJS components
 ChartJS.register(
@@ -28,7 +30,8 @@ ChartJS.register(
   BarElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  ChartDataLabels
 );
 
 interface DailyDashboardProps {
@@ -104,12 +107,12 @@ const DailyDashboard: React.FC<DailyDashboardProps> = ({ data }) => {
       {
         data: [data.totalPeakTime, data.totalOffPeak],
         backgroundColor: [
-          'rgba(153, 102, 255, 0.8)',
-          'rgba(255, 206, 86, 0.8)',
+          'rgba(255, 99, 132, 0.8)',   // light red
+          'rgba(77, 192, 75, 0.8)',   // light green
         ],
         borderColor: [
-          'rgba(153, 102, 255, 1)',
-          'rgba(255, 206, 86, 1)',
+          'rgba(255, 99, 132, 1)',     // light red
+          'rgba(77, 192, 75, 1)',     // light green
         ],
         borderWidth: 1,
       }
@@ -228,12 +231,12 @@ const DailyDashboard: React.FC<DailyDashboardProps> = ({ data }) => {
     };
   };
 
-  const pieChartOptions = {
+  const pieChartOptions: ChartOptions<'pie'> = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
       legend: {
-        position: 'bottom' as const,
+        position: 'bottom',
         labels: {
           usePointStyle: true,
           pointStyle: 'circle',
@@ -247,10 +250,10 @@ const DailyDashboard: React.FC<DailyDashboardProps> = ({ data }) => {
       },
       title: {
         display: true,
-        align: 'start' as const,
+        align: 'start',
         font: {
           size: 16,
-          weight: 'bold' as const,
+          weight: 'bold',
         },
         padding: {
           top: 10,
@@ -271,19 +274,33 @@ const DailyDashboard: React.FC<DailyDashboardProps> = ({ data }) => {
             const value = context.raw || 0;
             const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0);
             const percentage = Math.round((value / total) * 100);
-            return `${label}: ${value} (${percentage}%)`;
+            return `${label}: ${percentage}%`;
           }
         }
+      },
+      datalabels: {
+        color: '#333',
+        font: {
+          weight: 'bold',
+          size: 14,
+        },
+        formatter: (value: number, context: any) => {
+          // Show value on the pie chart
+          return value;
+        },
+        display: true,
+        anchor: 'center',
+        align: 'center',
       },
     }
   };
 
-  const barChartOptions = {
+  const barChartOptions: ChartOptions<'bar'> = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
       legend: {
-        position: 'bottom' as const,
+        position: 'bottom',
         labels: {
           usePointStyle: true,
           pointStyle: 'circle',
@@ -297,10 +314,10 @@ const DailyDashboard: React.FC<DailyDashboardProps> = ({ data }) => {
       },
       title: {
         display: true,
-        align: 'start' as const,
+        align: 'start',
         font: {
           size: 16,
-          weight: 'bold' as const,
+          weight: 'bold',
         },
         padding: {
           top: 10,
@@ -315,6 +332,18 @@ const DailyDashboard: React.FC<DailyDashboardProps> = ({ data }) => {
         borderWidth: 1,
         padding: 12,
         boxPadding: 6,
+      },
+      datalabels: {
+        color: '#333',
+        font: {
+          weight: 'bold',
+          size: 13,
+        },
+        anchor: 'end',
+        align: 'top',
+        offset: 4,
+        formatter: (value: number) => value,
+        display: true,
       },
     },
     scales: {
@@ -343,9 +372,26 @@ const DailyDashboard: React.FC<DailyDashboardProps> = ({ data }) => {
           <Card className="bg-white border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
             <div className="p-6">
               <h3 className="text-sm font-medium text-gray-500">Total Customers</h3>
-              <div className="mt-2 flex items-baseline">
-                <p className="text-2xl font-semibold text-gray-900">{data.totalVisitors}</p>
-                <p className="ml-2 text-sm text-gray-500">({data.totalNewClients} new)</p>
+              <div className="mt-2 flex items-baseline justify-between">
+                <div className="flex items-baseline">
+                  <p className="text-2xl font-semibold text-gray-900">{data.totalVisitors}</p>
+                  <p className="ml-2 text-sm text-gray-500">({data.totalNewClients} new)</p>
+                </div>
+                <div className="flex flex-col items-end justify-end">
+                  <div className="flex items-center space-x-1">
+                    <span className="text-sm text-gray-500">Prebooked:</span>
+                    <span className="text-sm font-semibold text-gray-700">{data.prebooked ?? 0}</span>
+                    {data.totalVisitors > (data.prebooked ?? 0) && (
+                      (<FaArrowUp className="text-green-600 mr-1" />)
+                    )}
+                    {data.totalVisitors < (data.prebooked ?? 0) && ( 
+                      (<FaArrowDown className="text-red-600 mr-1" />)
+                    )}
+                    {data.totalVisitors === (data.prebooked ?? 0) && (
+                        (<FaEquals className="text-gray-400 mr-1" />)
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           </Card>
@@ -382,9 +428,9 @@ const DailyDashboard: React.FC<DailyDashboardProps> = ({ data }) => {
                     options={{
                       ...pieChartOptions,
                       plugins: {
-                        ...pieChartOptions.plugins,
+                        ...pieChartOptions.plugins!,
                         title: {
-                          ...pieChartOptions.plugins.title,
+                          ...pieChartOptions.plugins!.title,
                           text: 'Gender Distribution',
                         },
                       },
@@ -402,9 +448,9 @@ const DailyDashboard: React.FC<DailyDashboardProps> = ({ data }) => {
                     options={{
                       ...pieChartOptions,
                       plugins: {
-                        ...pieChartOptions.plugins,
+                        ...pieChartOptions.plugins!,
                         title: {
-                          ...pieChartOptions.plugins.title,
+                          ...pieChartOptions.plugins!.title,
                           text: 'Timing Distribution',
                         },
                       },
@@ -422,9 +468,9 @@ const DailyDashboard: React.FC<DailyDashboardProps> = ({ data }) => {
                     options={{
                       ...pieChartOptions,
                       plugins: {
-                        ...pieChartOptions.plugins,
+                        ...pieChartOptions.plugins!,
                         title: {
-                          ...pieChartOptions.plugins.title,
+                          ...pieChartOptions.plugins!.title,
                           text: 'Language Distribution',
                         },
                       },
@@ -449,9 +495,9 @@ const DailyDashboard: React.FC<DailyDashboardProps> = ({ data }) => {
                     options={{
                       ...barChartOptions,
                       plugins: {
-                        ...barChartOptions.plugins,
+                        ...barChartOptions.plugins!,
                         title: {
-                          ...barChartOptions.plugins.title,
+                          ...barChartOptions.plugins!.title,
                           text: 'Sales Distribution',
                         },
                       },
@@ -469,9 +515,9 @@ const DailyDashboard: React.FC<DailyDashboardProps> = ({ data }) => {
                     options={{
                       ...barChartOptions,
                       plugins: {
-                        ...barChartOptions.plugins,
+                        ...barChartOptions.plugins!,
                         title: {
-                          ...barChartOptions.plugins.title,
+                          ...barChartOptions.plugins!.title,
                           text: 'Transactions Distribution',
                         },
                       },
@@ -495,9 +541,9 @@ const DailyDashboard: React.FC<DailyDashboardProps> = ({ data }) => {
                   options={{
                     ...barChartOptions,
                     plugins: {
-                      ...barChartOptions.plugins,
+                      ...barChartOptions.plugins!,
                       title: {
-                        ...barChartOptions.plugins.title,
+                        ...barChartOptions.plugins!.title,
                         text: 'Treatments Distribution',
                       },
                     },
