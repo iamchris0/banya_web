@@ -3,7 +3,7 @@ FROM node:20 as build
 
 WORKDIR /app
 
-COPY package.json ./
+COPY package*.json ./
 RUN npm install
 
 COPY . .
@@ -22,6 +22,6 @@ COPY package*.json ./
 # Install serve to serve the static files
 RUN npm install -g serve
 
-EXPOSE ${FRONTEND_PORT}
+EXPOSE 7777
 
-CMD ["serve", "-s", "dist", "-l", "${FRONTEND_PORT}"]
+CMD ["serve", "-s", "dist", "-l", "7777"]
