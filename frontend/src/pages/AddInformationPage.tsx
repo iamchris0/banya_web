@@ -16,6 +16,8 @@ interface SurveyModalProps {
   onUpdate?: (updates: Partial<ClientInfo>) => Promise<void>;
 }
 
+const BASE = import.meta.env.VITE_BASE;
+
 const SurveyModal: React.FC<SurveyModalProps> = ({ isOpen, onClose, onSubmitSuccess, initialData, selectedDate, onUpdate }) => {
   const { user, token } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -102,8 +104,8 @@ const SurveyModal: React.FC<SurveyModalProps> = ({ isOpen, onClose, onSubmitSucc
         await onUpdate(formData);
       } else {
         const url = initialData?.id
-          ? `http://localhost:2345/api/clients/${initialData.id}`
-          : 'http://localhost:2345/api/clients';
+          ? `${BASE}/api/clients/${initialData.id}`
+          : `${BASE}/api/clients`;
         const method = initialData?.id ? 'PUT' : 'POST';
 
         const response = await fetch(url, {

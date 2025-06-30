@@ -21,6 +21,9 @@ const DEFAULT_TREATMENTS = {
   massage_50: { amount: 0, done: false }
 };
 
+// Add at the top, after other imports
+const BASE = import.meta.env.VITE_BASE;
+
 const VerificationPage: React.FC = () => {
   const { token, user } = useAuth();
 
@@ -116,7 +119,7 @@ const VerificationPage: React.FC = () => {
 
     try {
       // Fetch both client and head data in parallel
-      const response = await fetch(`http://localhost:2345/api/head-daily-data?date=${dateUtils.toYYYYMMDD(date)}`, {
+      const response = await fetch(`${BASE}/api/head-daily-data?date=${dateUtils.toYYYYMMDD(date)}`, {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -413,7 +416,7 @@ const VerificationPage: React.FC = () => {
     }
 
     try {
-      const response = await fetch(`http://localhost:2345/api/clients/${receiptData.id}`, {
+      const response = await fetch(`${BASE}/api/clients/${receiptData.id}`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -513,7 +516,7 @@ const VerificationPage: React.FC = () => {
       return;
     }
     try {
-      const response = await fetch(`http://localhost:2345/api/head-daily-data`, {
+      const response = await fetch(`${BASE}/api/head-daily-data`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -542,7 +545,7 @@ const VerificationPage: React.FC = () => {
       return;
     }
     try {
-      const response = await fetch(`http://localhost:2345/api/head-weekly-data?weekStart=${dateUtils.toYYYYMMDD(date)}`, {
+      const response = await fetch(`${BASE}/api/head-weekly-data?weekStart=${dateUtils.toYYYYMMDD(date)}`, {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -571,7 +574,7 @@ const VerificationPage: React.FC = () => {
     try {
       const weekStartDate = dateUtils.getWeekStart(selectedDate);
 
-      const response = await fetch(`http://localhost:2345/api/head-weekly-data`, {
+      const response = await fetch(`${BASE}/api/head-weekly-data`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -606,7 +609,7 @@ const VerificationPage: React.FC = () => {
     try {
       // Get the weekly head data
       const weekStartDate = dateUtils.getWeekStart(selectedDate);
-      const headDataResponse = await fetch(`http://localhost:2345/api/head-daily-data?date=${dateUtils.toYYYYMMDD(weekStartDate)}`, {
+      const headDataResponse = await fetch(`${BASE}/api/head-daily-data?date=${dateUtils.toYYYYMMDD(weekStartDate)}`, {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -620,7 +623,7 @@ const VerificationPage: React.FC = () => {
       const headData = await headDataResponse.json();
 
       // Get the weekly summary using the correct week start date
-      const summaryResponse = await fetch(`http://localhost:2345/api/weekly-summary?weekStart=${dateUtils.toYYYYMMDD(weekStartDate)}`, {
+      const summaryResponse = await fetch(`${BASE}/api/weekly-summary?weekStart=${dateUtils.toYYYYMMDD(weekStartDate)}`, {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -645,7 +648,7 @@ const VerificationPage: React.FC = () => {
       return;
     }
     try {
-      const response = await fetch(`http://localhost:2345/api/clients/${clientId}/verify`, {
+      const response = await fetch(`${BASE}/api/clients/${clientId}/verify`, {
         method: 'PATCH',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -770,7 +773,7 @@ const VerificationPage: React.FC = () => {
     try {
       const weekStart = dateUtils.toYYYYMMDD(dateUtils.getWeekStart(selectedDate));
 
-      const response = await fetch(`http://localhost:2345/api/download-weekly-excel?weekStart=${weekStart}`, {
+      const response = await fetch(`${BASE}/api/download-weekly-excel?weekStart=${weekStart}`, {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${token}`,

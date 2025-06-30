@@ -3,6 +3,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useLocation } from 'react-router-dom';
 import { FaUsers } from 'react-icons/fa';
 
+const BASE = import.meta.env.VITE_BASE;
+
 const ActiveUsers: React.FC = () => {
   const { user, isAuthenticated, token } = useAuth();
   const [activeUsers, setActiveUsers] = useState<string[]>([]);
@@ -25,7 +27,7 @@ const ActiveUsers: React.FC = () => {
     try {
       const currentPage = getCurrentPage();
       const response = await fetch(
-        `http://localhost:2345/api/active-users?page=${encodeURIComponent(currentPage)}&username=${encodeURIComponent(user.username)}`,
+        `${BASE}/api/active-users?page=${encodeURIComponent(currentPage)}&username=${encodeURIComponent(user.username)}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,

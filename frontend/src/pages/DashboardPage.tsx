@@ -11,6 +11,8 @@ import PeriodDashboard from '../components/dashboard/PeriodDashboard';
 
 type TimeFilter = 'day' | 'week' | 'period';
 
+const BASE = import.meta.env.VITE_BASE;
+
 const DashboardPage: React.FC = () => {
   const { user, token } = useAuth();
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('week');
@@ -34,7 +36,7 @@ const DashboardPage: React.FC = () => {
       }
 
       try {
-        const baseUrl = 'http://localhost:2345/api';
+        const baseUrl = `${BASE}/api`;
         let url = '';
         let params = {};
 

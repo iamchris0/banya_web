@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { jwtDecode } from 'jwt-decode';
 import { AuthState, UserRole } from '../types';
 
+const BASE = import.meta.env.VITE_BASE;
+
 interface AuthContextType extends AuthState {
   token: string | null;
   login: (username: string, password: string) => Promise<{ success: boolean; role?: UserRole }>;
@@ -95,7 +97,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const login = async (username: string, password: string): Promise<{ success: boolean; role?: UserRole }> => {
     try {
-      const response = await fetch('http://localhost:2345/login', {
+      const response = await fetch(`${BASE}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),

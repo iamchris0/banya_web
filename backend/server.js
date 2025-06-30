@@ -5,12 +5,15 @@ import cors from 'cors';
 import http from 'http';
 import xlsx from 'xlsx';
 import { startOfWeek } from 'date-fns';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const app = express();
-const PORT = 2345;
-const SECRET_KEY = 'your_secret_key'; // Use a secure key in production
+const PORT = process.env.PORT || 2345;
+const SECRET_KEY = process.env.SECRET_KEY || 'my_secret_key';
 
-app.use(cors({ origin: 'http://localhost:5173' }));
+app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:5173' }));
 app.use(bodyParser.json());
 
 // Hardcoded admin user
