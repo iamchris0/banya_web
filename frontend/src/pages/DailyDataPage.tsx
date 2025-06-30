@@ -5,6 +5,8 @@ import SurveyModal from './AddInformationPage';
 import { ClientInfo } from '../types';
 import { FaArrowLeft, FaArrowRight, FaRegEdit, FaCheck } from 'react-icons/fa';
 
+const BASE = import.meta.env.VITE_BASE;
+
 const DailyDataPage: React.FC = () => {
   const { token, user } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -23,7 +25,7 @@ const DailyDataPage: React.FC = () => {
     }
     setError('');
     try {
-      const response = await fetch('http://localhost:2345/api/clients', {
+      const response = await fetch(`${BASE}/api/clients`, {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -137,7 +139,7 @@ const DailyDataPage: React.FC = () => {
       return;
     }
     try {
-      const response = await fetch(`http://localhost:2345/api/clients/${client.id}/verify`, {
+      const response = await fetch(`${BASE}/api/clients/${client.id}/verify`, {
         method: 'PATCH',
         headers: {
           Authorization: `Bearer ${token}`,

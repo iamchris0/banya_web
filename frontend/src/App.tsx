@@ -18,18 +18,18 @@ const App: React.FC = () => {
             <Route path="/login" element={<LoginPage />} />
             <Route element={<Layout />}>
               <Route
-                path="/dashboard"
-                element={
-                  <ProtectedRoute allowedRoles={['admin', 'head', 'boss']}>
-                    <DashboardPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
                 path="/daily-data"
                 element={
                   <ProtectedRoute allowedRoles={['admin', 'boss']}>
                     <DailyDataPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/dashboard"
+                element={
+                  <ProtectedRoute allowedRoles={['admin', 'head', 'boss']}>
+                    <DashboardPage />
                   </ProtectedRoute>
                 }
               />

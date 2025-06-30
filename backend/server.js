@@ -4,12 +4,16 @@ import bodyParser from 'body-parser';
 import cors from 'cors';
 import http from 'http';
 import xlsx from 'xlsx';
+import { startOfWeek } from 'date-fns';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const app = express();
-const PORT = 2345;
-const SECRET_KEY = 'your_secret_key'; // Use a secure key in production
+const PORT = process.env.PORT || 2345;
+const SECRET_KEY = process.env.SECRET_KEY || 'my_secret_key';
 
-app.use(cors({ origin: 'http://localhost:5173' }));
+app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:5173' }));
 app.use(bodyParser.json());
 
 // Hardcoded admin user
@@ -70,6 +74,14 @@ app.post('/login', (req, res) => {
   }
 });
 
+// Helper function to format date as yyyy-MM-dd
+const formatDate = (date) => {
+  const day = date.getDate().toString().padStart(2, '0');
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const year = date.getFullYear();
+  return `${year}-${month}-${day}`;
+};
+
 // Submit client information
 app.post('/api/clients', authenticateToken, restrictToRoles(['admin']), (req, res) => {
   const {
@@ -124,6 +136,7 @@ app.post('/api/clients', authenticateToken, restrictToRoles(['admin']), (req, re
     return res.status(400).json({ message: 'Number of new clients cannot exceed total number of people' });
   }
 
+  const normalizedDate = formatDate(new Date(date));
   const client = {
     id: clients.length + 1,
     amountOfPeople: Number(amountOfPeople) || 0,
@@ -147,7 +160,7 @@ app.post('/api/clients', authenticateToken, restrictToRoles(['admin']), (req, re
     yottaLinksTotal: Number(yottaLinksTotal) || 0,
     yottaWidgetAmount: Number(yottaWidgetAmount) || 0,
     yottaWidgetTotal: Number(yottaWidgetTotal) || 0,
-    date,
+    date: normalizedDate,
     createdBy: req.user.username,
     isVerified: false,
     status: 'Edited'
@@ -194,6 +207,7 @@ app.put('/api/clients/:id', authenticateToken, restrictToRoles(['admin', 'head']
     return res.status(400).json({ message: 'Missing required fields: Amount Of People or Date' });
   }
 
+  const normalizedDate = formatDate(new Date(date));
   const updatedClient = {
     ...clients[clientIndex],
     amountOfPeople: Number(amountOfPeople) || 0,
@@ -217,7 +231,7 @@ app.put('/api/clients/:id', authenticateToken, restrictToRoles(['admin', 'head']
     yottaLinksTotal: Number(yottaLinksTotal) || 0,
     yottaWidgetAmount: Number(yottaWidgetAmount) || 0,
     yottaWidgetTotal: Number(yottaWidgetTotal) || 0,
-    date,
+    date: normalizedDate,
     isVerified: false,
     status: 'Edited',
   };
@@ -381,34 +395,34 @@ app.get('/api/weekly-summary', authenticateToken, (req, res) => {
       foodAndDrink: dayHeadData.reduce((sum, data) => sum + (data.foodAndDrinkSales || 0), 0),
       treatments: {
         entryOnly: { 
-          value: dayHeadData.reduce((sum, data) => sum + ((data.treatments?.entryOnly?.amount || 0) * (data.treatments?.entryOnly?.done ? 1 : 0)), 0)
+          amount: dayHeadData.reduce((sum, data) => sum + ((data.treatments?.entryOnly?.amount || 0) * (data.treatments?.entryOnly?.done ? 1 : 0)), 0)
         },
         parenie: { 
-          value: dayHeadData.reduce((sum, data) => sum + ((data.treatments?.parenie?.amount || 0) * (data.treatments?.parenie?.done ? 1 : 0)), 0)
+          amount: dayHeadData.reduce((sum, data) => sum + ((data.treatments?.parenie?.amount || 0) * (data.treatments?.parenie?.done ? 1 : 0)), 0)
         },
         aromaPark: { 
-          value: dayHeadData.reduce((sum, data) => sum + ((data.treatments?.aromaPark?.amount || 0) * (data.treatments?.aromaPark?.done ? 1 : 0)), 0)
+          amount: dayHeadData.reduce((sum, data) => sum + ((data.treatments?.aromaPark?.amount || 0) * (data.treatments?.aromaPark?.done ? 1 : 0)), 0)
         },
         iceWrap: { 
-          value: dayHeadData.reduce((sum, data) => sum + ((data.treatments?.iceWrap?.amount || 0) * (data.treatments?.iceWrap?.done ? 1 : 0)), 0)
+          amount: dayHeadData.reduce((sum, data) => sum + ((data.treatments?.iceWrap?.amount || 0) * (data.treatments?.iceWrap?.done ? 1 : 0)), 0)
         },
         scrub: { 
-          value: dayHeadData.reduce((sum, data) => sum + ((data.treatments?.scrub?.amount || 0) * (data.treatments?.scrub?.done ? 1 : 0)), 0)
+          amount: dayHeadData.reduce((sum, data) => sum + ((data.treatments?.scrub?.amount || 0) * (data.treatments?.scrub?.done ? 1 : 0)), 0)
         },
         mudMask: { 
-          value: dayHeadData.reduce((sum, data) => sum + ((data.treatments?.mudMask?.amount || 0) * (data.treatments?.mudMask?.done ? 1 : 0)), 0)
+          amount: dayHeadData.reduce((sum, data) => sum + ((data.treatments?.mudMask?.amount || 0) * (data.treatments?.mudMask?.done ? 1 : 0)), 0)
         },
         mudWrap: { 
-          value: dayHeadData.reduce((sum, data) => sum + ((data.treatments?.mudWrap?.amount || 0) * (data.treatments?.mudWrap?.done ? 1 : 0)), 0)
+          amount: dayHeadData.reduce((sum, data) => sum + ((data.treatments?.mudWrap?.amount || 0) * (data.treatments?.mudWrap?.done ? 1 : 0)), 0)
         },
         aloeVera: { 
-          value: dayHeadData.reduce((sum, data) => sum + ((data.treatments?.aloeVera?.amount || 0) * (data.treatments?.aloeVera?.done ? 1 : 0)), 0)
+          amount: dayHeadData.reduce((sum, data) => sum + ((data.treatments?.aloeVera?.amount || 0) * (data.treatments?.aloeVera?.done ? 1 : 0)), 0)
         },
         massage_25: { 
-          value: dayHeadData.reduce((sum, data) => sum + ((data.treatments?.massage_25?.amount || 0) * (data.treatments?.massage_25?.done ? 1 : 0)), 0)
+          amount: dayHeadData.reduce((sum, data) => sum + ((data.treatments?.massage_25?.amount || 0) * (data.treatments?.massage_25?.done ? 1 : 0)), 0)
         },
         massage_50: { 
-          value: dayHeadData.reduce((sum, data) => sum + ((data.treatments?.massage_50?.amount || 0) * (data.treatments?.massage_50?.done ? 1 : 0)), 0)
+          amount: dayHeadData.reduce((sum, data) => sum + ((data.treatments?.massage_50?.amount || 0) * (data.treatments?.massage_50?.done ? 1 : 0)), 0)
         }
       }
     };
@@ -459,34 +473,34 @@ app.get('/api/weekly-summary', authenticateToken, (req, res) => {
     // Treatments summary
     treatments: {
       entryOnly: { 
-        value: dailyHeadData.reduce((sum, data) => sum + ((data.treatments?.entryOnly?.amount || 0) * (data.treatments?.entryOnly?.done ? 1 : 0)), 0)
+        amount: dailyHeadData.reduce((sum, data) => sum + ((data.treatments?.entryOnly?.amount || 0) * (data.treatments?.entryOnly?.done ? 1 : 0)), 0)
       },
       parenie: { 
-        value: dailyHeadData.reduce((sum, data) => sum + ((data.treatments?.parenie?.amount || 0) * (data.treatments?.parenie?.done ? 1 : 0)), 0)
+        amount: dailyHeadData.reduce((sum, data) => sum + ((data.treatments?.parenie?.amount || 0) * (data.treatments?.parenie?.done ? 1 : 0)), 0)
       },
       aromaPark: { 
-        value: dailyHeadData.reduce((sum, data) => sum + ((data.treatments?.aromaPark?.amount || 0) * (data.treatments?.aromaPark?.done ? 1 : 0)), 0)
+        amount: dailyHeadData.reduce((sum, data) => sum + ((data.treatments?.aromaPark?.amount || 0) * (data.treatments?.aromaPark?.done ? 1 : 0)), 0)
       },
       iceWrap: { 
-        value: dailyHeadData.reduce((sum, data) => sum + ((data.treatments?.iceWrap?.amount || 0) * (data.treatments?.iceWrap?.done ? 1 : 0)), 0)
+        amount: dailyHeadData.reduce((sum, data) => sum + ((data.treatments?.iceWrap?.amount || 0) * (data.treatments?.iceWrap?.done ? 1 : 0)), 0)
       },
       scrub: { 
-        value: dailyHeadData.reduce((sum, data) => sum + ((data.treatments?.scrub?.amount || 0) * (data.treatments?.scrub?.done ? 1 : 0)), 0)
+        amount: dailyHeadData.reduce((sum, data) => sum + ((data.treatments?.scrub?.amount || 0) * (data.treatments?.scrub?.done ? 1 : 0)), 0)
       },
       mudMask: { 
-        value: dailyHeadData.reduce((sum, data) => sum + ((data.treatments?.mudMask?.amount || 0) * (data.treatments?.mudMask?.done ? 1 : 0)), 0)
+        amount: dailyHeadData.reduce((sum, data) => sum + ((data.treatments?.mudMask?.amount || 0) * (data.treatments?.mudMask?.done ? 1 : 0)), 0)
       },
       mudWrap: { 
-        value: dailyHeadData.reduce((sum, data) => sum + ((data.treatments?.mudWrap?.amount || 0) * (data.treatments?.mudWrap?.done ? 1 : 0)), 0)
+        amount: dailyHeadData.reduce((sum, data) => sum + ((data.treatments?.mudWrap?.amount || 0) * (data.treatments?.mudWrap?.done ? 1 : 0)), 0)
       },
       aloeVera: { 
-        value: dailyHeadData.reduce((sum, data) => sum + ((data.treatments?.aloeVera?.amount || 0) * (data.treatments?.aloeVera?.done ? 1 : 0)), 0)
+        amount: dailyHeadData.reduce((sum, data) => sum + ((data.treatments?.aloeVera?.amount || 0) * (data.treatments?.aloeVera?.done ? 1 : 0)), 0)
       },
       massage_25: { 
-        value: dailyHeadData.reduce((sum, data) => sum + ((data.treatments?.massage_25?.amount || 0) * (data.treatments?.massage_25?.done ? 1 : 0)), 0)
+        amount: dailyHeadData.reduce((sum, data) => sum + ((data.treatments?.massage_25?.amount || 0) * (data.treatments?.massage_25?.done ? 1 : 0)), 0)
       },
       massage_50: { 
-        value: dailyHeadData.reduce((sum, data) => sum + ((data.treatments?.massage_50?.amount || 0) * (data.treatments?.massage_50?.done ? 1 : 0)), 0)
+        amount: dailyHeadData.reduce((sum, data) => sum + ((data.treatments?.massage_50?.amount || 0) * (data.treatments?.massage_50?.done ? 1 : 0)), 0)
       }
     }
   };
@@ -502,36 +516,38 @@ app.get('/api/head-daily-data', authenticateToken, (req, res) => {
     return res.status(400).json({ message: 'Missing date query parameter' });
   }
 
+  const normalizedDate = formatDate(new Date(date));
   // Find existing data
-  const selectedReceiptData = clients.find(item => item.date === date);
-  const selectedHeadData = headDailyData[date];
+  const selectedReceiptData = clients.find(item => item.date === normalizedDate);
+  const selectedHeadData = headDailyData[normalizedDate];
   
   return res.json({ 
-    headData: selectedHeadData || null, 
-    receiptData: selectedReceiptData || null 
+    headData: selectedHeadData || {status: 'Pending'}, 
+    receiptData: selectedReceiptData || null
   });
 });
 
 // Verify head data (F&B Sales + Treatments)
 app.post('/api/head-daily-data', authenticateToken, restrictToRoles(['head']), (req, res) => {
   const { date, newDailyData } = req.body;
-  const existingData = headDailyData[date];
+  const normalizedDate = formatDate(new Date(date));
+  const existingData = headDailyData[normalizedDate];
   
   if (!existingData) {
-    headDailyData[date] = {
+    headDailyData[normalizedDate] = {
       ...newDailyData,
-      status: 'Confirmed'
+      status: 'Confirmed',
+      modifiedBy: req.user.username
     };
-    
-    return res.json({ message: 'New head data added', headDailyData: headDailyData[date] });
+    return res.json({ message: 'New head data added', headDailyData: headDailyData[normalizedDate] });
   } else {
     // Record found, update the existing entry
     const updatedData = {
       ...newDailyData,
-      status: 'Confirmed'
+      status: 'Confirmed',
+      modifiedBy: req.user.username
     };
-    headDailyData[date] = updatedData;
-    
+    headDailyData[normalizedDate] = updatedData;
     return res.json({ message: 'Existing head data updated', headDailyData: updatedData });
   }
 });
@@ -570,16 +586,25 @@ app.post('/api/head-weekly-data', authenticateToken, restrictToRoles(['head']), 
     // Update only the specified section
     switch (section) {
       case 'preBookedData':
-        existingData.preBookedData = newWeeklyData.preBookedData;
-        existingData.preBookedData.status = 'Confirmed';
+        existingData.preBookedData = {
+          ...newWeeklyData.preBookedData,
+          status: 'Confirmed',
+          modifiedBy: req.user.username
+        };
         break;
       case 'bonuses':
-        existingData.bonuses = newWeeklyData.bonuses;
-        existingData.bonuses.status = 'Confirmed';
+        existingData.bonuses = {
+          ...newWeeklyData.bonuses,
+          status: 'Confirmed',
+          modifiedBy: req.user.username
+        };
         break;
       case 'otherCosts':
-        existingData.otherCosts = newWeeklyData.otherCosts;
-        existingData.otherCosts.status = 'Confirmed';
+        existingData.otherCosts = {
+          ...newWeeklyData.otherCosts,
+          status: 'Confirmed',
+          modifiedBy: req.user.username
+        };
         break;
     }
     
@@ -829,12 +854,158 @@ app.get('/api/download-weekly-excel', authenticateToken, async (req, res) => {
   }
 });
 
-// Helper function to format date as dd.mm.yyyy
-const formatDate = (date) => {
-  const day = date.getDate().toString().padStart(2, '0');
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');
-  const year = date.getFullYear();
-  return `${year}-${month}-${day}`;
+app.get('/api/dashboard-data', authenticateToken, async (req, res) => {
+  const { timeFilter, selectedDate, periodStart, periodEnd } = req.query;
+  
+  if (timeFilter === 'day') {
+    const normalizedDate = formatDate(new Date(selectedDate));
+    const clientData = clients.find(client => client.date === normalizedDate) || {};
+    const headDaily = headDailyData[normalizedDate];
+    const dayIndex = new Date(selectedDate).getDay();
+    const weekStart = formatDate(startOfWeek(new Date(selectedDate), { weekStartsOn: 1 }));
+    const prebooked = headWeeklyData[weekStart]?.preBookedData?.dailyPreBookedPeople?.[getDayName(dayIndex - 1)] || 0;
+    const dailyData = {
+      totalVisitors: clientData.amountOfPeople || 0,
+      totalNewClients: clientData.newClients || 0,
+      totalMale: clientData.male || 0,
+      totalFemale: clientData.female || 0,
+      totalEnglishSpeaking: clientData.englishSpeaking || 0,
+      totalRussianSpeaking: clientData.russianSpeaking || 0,
+      totalOffPeak: clientData.offPeakClients || 0,
+      totalPeakTime: clientData.peakTimeClients || 0,
+      totalOnlineMemberships: {
+        amount: clientData.onlineMembershipsAmount || 0,
+        value: clientData.onlineMembershipsTotal || 0
+      },
+      totalOfflineMemberships: {
+        amount: clientData.offlineMembershipsAmount || 0,
+        value: clientData.offlineMembershipsTotal || 0
+      },
+      totalOnlineVouchers: {
+        amount: clientData.onlineVouchersAmount || 0,
+        value: clientData.onlineVouchersTotal || 0
+      },
+      totalPaperVouchers: {
+        amount: clientData.paperVouchersAmount || 0,
+        value: clientData.paperVouchersTotal || 0
+      },
+      totalYottaLinks: {
+        amount: clientData.yottaLinksAmount || 0,
+        value: clientData.yottaLinksTotal || 0
+      },
+      totalYottaWidget: {
+        amount: clientData.yottaWidgetAmount || 0,
+        value: clientData.yottaWidgetTotal || 0
+      },
+      totalFoodAndDrinkSales: headDaily?.foodAndDrinkSales || 0,
+      totalTreatments: headDaily?.treatments || 0,
+      prebooked: prebooked
+    }
+    return res.json({ dailyData });
+  } else if (timeFilter === 'week') {
+    const weeklyDashboardData = {};
+    for (let i = 0; i < 7; i++) {
+      const currentDate = new Date(selectedDate);
+      currentDate.setDate(currentDate.getDate() + i);
+      currentDate.setUTCHours(0, 0, 0, 0);
+      const formattedDate = formatDate(currentDate);
+      const clientsDaily = clients.find(client => client.date === formattedDate) || {};
+      const headDaily = headDailyData[formattedDate] || {};
+      weeklyDashboardData[formattedDate] = {
+        totalVisitors: clientsDaily.amountOfPeople || 0,
+        totalNewClients: clientsDaily.newClients || 0,
+        totalMale: clientsDaily.male || 0,
+        totalFemale: clientsDaily.female || 0,
+        totalEnglishSpeaking: clientsDaily.englishSpeaking || 0,
+        totalRussianSpeaking: clientsDaily.russianSpeaking || 0,
+        totalOffPeak: clientsDaily.offPeakClients || 0,
+        totalPeakTime: clientsDaily.peakTimeClients || 0,
+        totalOnlineMemberships: {
+          amount: clientsDaily.onlineMembershipsAmount || 0,
+          value: clientsDaily.onlineMembershipsTotal || 0
+        },
+        totalOfflineMemberships: {
+          amount: clientsDaily.offlineMembershipsAmount || 0,
+          value: clientsDaily.offlineMembershipsTotal || 0
+        },
+        totalOnlineVouchers: {
+          amount: clientsDaily.onlineVouchersAmount || 0,
+          value: clientsDaily.onlineVouchersTotal || 0
+        },
+        totalPaperVouchers: {
+          amount: clientsDaily.paperVouchersAmount || 0,
+          value: clientsDaily.paperVouchersTotal || 0
+        },
+        totalYottaLinks: {
+          amount: clientsDaily.yottaLinksAmount || 0,
+          value: clientsDaily.yottaLinksTotal || 0
+        },
+        totalYottaWidget: {
+          amount: clientsDaily.yottaWidgetAmount || 0,
+          value: clientsDaily.yottaWidgetTotal || 0
+        },
+        totalFoodAndDrinkSales: headDaily.foodAndDrinkSales || 0,
+        totalTreatments: headDaily.treatments || 0,
+        prebooked: headWeeklyData[selectedDate]?.preBookedData?.dailyPreBookedPeople?.[getDayName(i)] || 0
+      };
+    }
+    return res.json({ weeklyDashboardData });
+  } else if (timeFilter === 'period') {
+    const periodDashboardData = {};
+    const startDate = new Date(periodStart);
+    const endDate = new Date(periodEnd);
+    
+    for (let date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
+      const formattedDate = formatDate(date);
+      const clientsDaily = clients.find(client => client.date === formattedDate) || {};
+      const headDaily = headDailyData[formattedDate] || {};
+      
+      periodDashboardData[formattedDate] = {
+        totalVisitors: clientsDaily.amountOfPeople || 0,
+        totalNewClients: clientsDaily.newClients || 0,
+        totalMale: clientsDaily.male || 0,
+        totalFemale: clientsDaily.female || 0,
+        totalEnglishSpeaking: clientsDaily.englishSpeaking || 0,
+        totalRussianSpeaking: clientsDaily.russianSpeaking || 0,
+        totalOffPeak: clientsDaily.offPeakClients || 0,
+        totalPeakTime: clientsDaily.peakTimeClients || 0,
+        totalOnlineMemberships: {
+          amount: clientsDaily.onlineMembershipsAmount || 0,
+          value: clientsDaily.onlineMembershipsTotal || 0
+        },
+        totalOfflineMemberships: {
+          amount: clientsDaily.offlineMembershipsAmount || 0,
+          value: clientsDaily.offlineMembershipsTotal || 0
+        },
+        totalOnlineVouchers: {
+          amount: clientsDaily.onlineVouchersAmount || 0,
+          value: clientsDaily.onlineVouchersTotal || 0
+        },
+        totalPaperVouchers: {
+          amount: clientsDaily.paperVouchersAmount || 0,
+          value: clientsDaily.paperVouchersTotal || 0
+        },
+        totalYottaLinks: {
+          amount: clientsDaily.yottaLinksAmount || 0,
+          value: clientsDaily.yottaLinksTotal || 0
+        },
+        totalYottaWidget: {
+          amount: clientsDaily.yottaWidgetAmount || 0,
+          value: clientsDaily.yottaWidgetTotal || 0
+        },
+        totalFoodAndDrinkSales: headDaily.foodAndDrinkSales || 0,
+        totalTreatments: headDaily.treatments || 0,
+        prebooked: headWeeklyData[formattedDate]?.preBookedData?.dailyPreBookedPeople?.[getDayName(date.getDay())] || 0
+      };
+    }
+    return res.json({ weeklyDashboardData: periodDashboardData });
+  }
+}); 
+
+// Helper function to get day name
+const getDayName = (dayIndex) => {
+  const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+  return days[dayIndex];
 };
 
 const server = http.createServer(app);

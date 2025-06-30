@@ -26,6 +26,7 @@ export interface DailyPreBooked {
 export interface PreBookedData {
   dailyPreBookedPeople?: DailyPreBooked;
   dailyPreBookedValue?: DailyPreBooked;
+  modifiedBy?: string;
   status?: StatusType;
 }
 
@@ -41,6 +42,7 @@ export interface Bonuses {
   vouchersSalesBonus?: number;
   membershipSalesBonus?: number;
   privateBookingsBonus?: number;
+  modifiedBy?: string;
   status?: StatusType;
 }
 
@@ -48,6 +50,7 @@ export interface OtherCosts {
   kitchenSalaryPaid?: number;
   foodAndBeverageStock?: number;
   kitchenPL?: number;
+  modifiedBy?: string;
   status?: StatusType;
 }
 
@@ -96,6 +99,7 @@ export interface HeadDaily {
     massage_50: { done: boolean; amount: number };
   };
   date?: string;
+  modifiedBy?: string;
   status: StatusType;
 }
 
@@ -123,15 +127,45 @@ export interface WeeklySummary {
   totalYottaWidget: { amount: number; value: number };
   totalFoodAndDrink: number;
   treatments: {
-    entryOnly: { amount: number; value: number };
-    parenie: { amount: number; value: number };
-    aromaPark: { amount: number; value: number };
-    iceWrap: { amount: number; value: number };
-    scrub: { amount: number; value: number };
-    mudMask: { amount: number; value: number };
-    mudWrap: { amount: number; value: number };
-    aloeVera: { amount: number; value: number };
-    massage_25: { amount: number; value: number };
-    massage_50: { amount: number; value: number };
+    entryOnly: { amount: number; done: boolean };
+    parenie: { amount: number; done: boolean };
+    aromaPark: { amount: number; done: boolean };
+    iceWrap: { amount: number; done: boolean };
+    scrub: { amount: number; done: boolean };
+    mudMask: { amount: number; done: boolean };
+    mudWrap: { amount: number; done: boolean };
+    aloeVera: { amount: number; done: boolean };
+    massage_25: { amount: number; done: boolean };
+    massage_50: { amount: number; done: boolean };
   };
+  prebooked?: number;
+}
+
+export interface WeeklyDashboardData {
+  [date: string]: WeeklySummary;
+}
+
+export interface DailyData {
+  totalVisitors: number;
+  totalNewClients: number;
+  totalMale: number;
+  totalFemale: number;
+  totalEnglishSpeaking: number;
+  totalRussianSpeaking: number;
+  totalOffPeak: number;
+  totalPeakTime: number;
+  totalOnlineMemberships: { amount: number; value: number };
+  totalOfflineMemberships: { amount: number; value: number };
+  totalOnlineVouchers: { amount: number; value: number };
+  totalPaperVouchers: { amount: number; value: number };
+  totalYottaLinks: { amount: number; value: number };
+  totalYottaWidget: { amount: number; value: number };
+  totalFoodAndDrinkSales: number;
+  totalTreatments: number;
+  prebooked: number;
+}
+
+export interface ApiResponse {
+  weeklyDashboardData?: WeeklyDashboardData;
+  dailyData?: DailyData;
 }
