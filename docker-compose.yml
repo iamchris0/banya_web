@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    env_file: .env
+    environment:
+      - PORT=${BACKEND_PORT}
+    ports:
+      - "${BACKEND_PORT}:${BACKEND_PORT}"
+    working_dir: /app
+    volumes:
+      - ./backend:/app
+    command: node server.js
+
+  frontend:
+    build: ./frontend
+    env_file: .env
+    environment:
+      - VITE_PORT=${FRONTEND_PORT}
+    ports:
+      - "${FRONTEND_PORT}:${FRONTEND_PORT}"
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+    command: serve -s dist -l ${FRONTEND_PORT}
+    depends_on:
+      - backend
